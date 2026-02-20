@@ -1,4 +1,3 @@
--- Add missing hired_at to staff to match Staff entity
-ALTER TABLE staff
-  ADD COLUMN IF NOT EXISTS hired_at BIGINT;
+-- Deprecated migration. Consolidated into V1__cartwave_init.sql
+-- Removed to avoid duplicate/partial migrations.
 

@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 
 @Service
@@ -28,7 +29,14 @@ public class JwtTokenProvider {
     }
 
     public String generateToken(UserDetails userDetails) {
+        return generateToken(userDetails, null);
+    }
+
+    public String generateToken(UserDetails userDetails, UUID storeId) {
         Map<String, Object> claims = new HashMap<>();
+        if (storeId != null) {
+            claims.put("storeId", storeId.toString());
+        }
         return createToken(claims, userDetails.getUsername());
     }
 
@@ -36,10 +44,10 @@ public class JwtTokenProvider {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + jwtExpirationDate);
         return Jwts.builder()
-                .claims(claims)
-                .subject(subject)
-                .issuedAt(now)
-                .expiration(expiry)
+                .setClaims(claims)
+                .setSubject(subject)
+                .setIssuedAt(now)
+                .setExpiration(expiry)
                 .signWith(getSigningKey())
                 .compact();
     }
@@ -63,11 +71,18 @@ public class JwtTokenProvider {
     }
 
     private Claims extractAllClaims(String token) {
-        return Jwts.parser()
-                .verifyWith(getSigningKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+        @SuppressWarnings("deprecation")
+        io.jsonwebtoken.JwtParser parser = Jwts.parser()
+                .setSigningKey(getSigningKey())
+                .build();
+        return parser.parseClaimsJws(token).getBody();
+    }
+
+    public UUID extractStoreId(String token) {
+        Claims claims = extractAllClaims(token);
+        String storeId = claims.get("storeId", String.class);
+        if (storeId == null) return null;
+        return UUID.fromString(storeId);
     }
 
     private Boolean isTokenExpired(String token) {

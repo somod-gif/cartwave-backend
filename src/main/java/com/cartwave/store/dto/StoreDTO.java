@@ -23,5 +23,7 @@ public class StoreDTO {
     private Boolean isActive;
     private String logoUrl;
     private String websiteUrl;
+    // allow toggling custom domain from UI
+    private Boolean customDomain;
 
 }

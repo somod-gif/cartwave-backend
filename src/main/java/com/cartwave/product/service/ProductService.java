@@ -4,6 +4,8 @@ import com.cartwave.product.entity.Product;
 import com.cartwave.product.entity.ProductStatus;
 import com.cartwave.product.repository.ProductRepository;
 import com.cartwave.product.dto.ProductDTO;
+import com.cartwave.subscription.service.SubscriptionService;
+import com.cartwave.tenant.TenantContext;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -14,13 +16,20 @@ import java.util.stream.Collectors;
 public class ProductService {
 
     private final ProductRepository productRepository;
+    private final SubscriptionService subscriptionService;
 
-    public ProductService(ProductRepository productRepository) {
+    public ProductService(ProductRepository productRepository, SubscriptionService subscriptionService) {
         this.productRepository = productRepository;
+        this.subscriptionService = subscriptionService;
     }
 
     public ProductDTO createProduct(ProductDTO productDto) {
+        UUID storeId = TenantContext.getTenantId();
+        long currentCount = productRepository.countByStoreIdAndDeletedFalse(storeId);
+        subscriptionService.assertCanCreateProducts(storeId, currentCount, 1);
+
         Product product = new Product();
+        product.setStoreId(storeId);
         product.setName(productDto.getName());
         product.setDescription(productDto.getDescription());
         product.setPrice(productDto.getPrice());

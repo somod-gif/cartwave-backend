@@ -18,4 +18,7 @@ public interface StaffRepository extends JpaRepository<Staff, UUID> {
     @Query("SELECT s FROM Staff s WHERE s.id = :id AND s.storeId = :storeId AND s.deleted = false")
     Optional<Staff> findByIdAndStoreId(@Param("id") UUID id, @Param("storeId") UUID storeId);
 
+    // count current non-deleted staff for a store
+    long countByStoreIdAndDeletedFalse(UUID storeId);
+
 }

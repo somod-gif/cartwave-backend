@@ -1,5 +1,12 @@
 # CartWave Backend - Quick Start Guide
 
+
+
+Swagger UI: http://localhost:8080/swagger-ui/index.html
+OpenAPI JSON: http://localhost:8080/v3/api-docs
+
+
+
 ## Prerequisites
 
 - **Java 25** (or Java 21+ that supports Spring Boot 4.0.2)

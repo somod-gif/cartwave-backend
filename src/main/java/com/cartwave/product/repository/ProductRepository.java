@@ -23,4 +23,7 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     @Query("SELECT p FROM Product p WHERE p.sku = :sku AND p.storeId = :storeId AND p.deleted = false")
     Optional<Product> findBySkuAndStoreId(@Param("sku") String sku, @Param("storeId") UUID storeId);
 
+    // count current non-deleted products for a store
+    long countByStoreIdAndDeletedFalse(UUID storeId);
+
 }
