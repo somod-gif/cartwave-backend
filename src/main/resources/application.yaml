@@ -3,10 +3,9 @@ spring:
     name: cartwave-backend
 
   datasource:
-    url: ${DB_URL:jdbc:h2:mem:cartwave;DB_CLOSE_DELAY=-1}
-    username: ${DB_USER:sa}
+    url: ${DATABASE_URL:${DB_URL:jdbc:h2:mem:cartwave;DB_CLOSE_DELAY=-1}}
+    username: ${DB_USERNAME:${DB_USER:sa}}
     password: ${DB_PASSWORD:}
-    # driver-class-name removed to allow auto-detection (prevents driver mismatch when DB_URL is a Postgres URL)
 
   flyway:
     enabled: false
@@ -17,14 +16,21 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    properties:
-      hibernate:
-        format_sql: true
-    show-sql: true
+    show-sql: false
 
 
 server:
-  port: 8080
+  port: ${PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
 
 app:
   jwt-secret: ${JWT_SECRET:dev-secret}
