@@ -1,121 +1,36 @@
 {
   "info": {
-    "name": "CartWave API - Core Collection",
-    "_postman_id": "cartwave-core",
-    "description": "Core API requests for local testing: health, auth, products, stores, orders, subscriptions, billing.",
+    "name": "CartWave MVP API",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
-  "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:8080"
-    },
-    {
-      "key": "authToken",
-      "value": ""
-    }
-  ],
   "item": [
     {
-      "name": "Health - GET /api/v1/health",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": "{{baseUrl}}/api/v1/health",
-        "description": "Simple health check."
-      }
-    },
-    {
-      "name": "Auth - Register (POST /api/v1/auth/register)",
+      "name": "Auth Login",
       "request": {
         "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"Passw0rd!\",\n  \"role\": \"USER\"\n}"
-        },
-        "url": "{{baseUrl}}/api/v1/auth/register",
-        "description": "Register a new user. Response returns the created user object."
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","login"]},
+        "body": {"mode": "raw", "raw": "{\n  \"email\": \"owner@shop.com\",\n  \"password\": \"StrongPassword123\"\n}"}
       }
     },
     {
-      "name": "Auth - Login (POST /api/v1/auth/login)",
+      "name": "Create Product",
       "request": {
         "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"Passw0rd!\"\n}"
-        },
-        "url": "{{baseUrl}}/api/v1/auth/login",
-        "description": "Login and receive JWT token. Copy the token into the environment variable 'authToken' for protected requests."
+        "header": [{"key": "Content-Type", "value": "application/json"}, {"key": "Authorization", "value": "Bearer {{accessToken}}"}],
+        "url": {"raw": "{{baseUrl}}/api/v1/products", "host": ["{{baseUrl}}"], "path": ["api","v1","products"]},
+        "body": {"mode": "raw", "raw": "{\n  \"storeId\": \"{{storeId}}\",\n  \"name\": \"MVP Product\",\n  \"price\": 99.99\n}"}
       }
     },
     {
-      "name": "Products - GET list (GET /api/v1/products)",
-      "request": {
-        "method": "GET",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{authToken}}"
-          }
-        ],
-        "url": "{{baseUrl}}/api/v1/products",
-        "description": "Get products. Protected endpoint — set authToken after login."
-      }
-    },
-    {
-      "name": "Products - Create (POST /api/v1/products)",
+      "name": "Enqueue Email",
       "request": {
         "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" },
-          { "key": "Authorization", "value": "Bearer {{authToken}}" }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"storeId\": \"00000000-0000-0000-0000-000000000000\",\n  \"name\": \"Sample Product\",\n  \"description\": \"Short description\",\n  \"price\": 19.99\n}"
-        },
-        "url": "{{baseUrl}}/api/v1/products",
-        "description": "Create a product. Replace storeId with a real store UUID."
-      }
-    },
-    {
-      "name": "Stores - GET list (GET /stores)",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": "{{baseUrl}}/stores",
-        "description": "List stores (may be protected depending on backend)."
-      }
-    },
-    {
-      "name": "Stores - Create (POST /stores)",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" },
-          { "key": "Authorization", "value": "Bearer {{authToken}}" }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"name\": \"My Store\",\n  \"slug\": \"my-store\",\n  \"ownerId\": \"00000000-0000-0000-0000-000000000000\"\n}"
-        },
-        "url": "{{baseUrl}}/stores",
-        "description": "Create a store. Replace ownerId with a real user UUID."
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {"raw": "{{baseUrl}}/api/v1/emails/enqueue", "host": ["{{baseUrl}}"], "path": ["api","v1","emails","enqueue"]},
+        "body": {"mode": "raw", "raw": "{\n  \"recipient\": \"buyer@shop.com\",\n  \"subject\": \"Order Confirmation\",\n  \"templateName\": \"order_confirmation\",\n  \"payloadJson\": \"{\\\"orderId\\\":\\\"abc\\\"}\"\n}"}
       }
     }
-  ]
+  ],
+  "variable": [{"key": "baseUrl", "value": "http://localhost:8080"}, {"key": "accessToken", "value": ""}, {"key": "storeId", "value": ""}]
 }
-

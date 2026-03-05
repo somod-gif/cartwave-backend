@@ -24,6 +24,9 @@ public class JwtTokenProvider {
     @Value("${app.jwt-expiration-milliseconds}")
     private long jwtExpirationDate;
 
+    @Value("${jwt.refresh-token-expiration:604800000}")
+    private long refreshExpirationDate;
+
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
@@ -37,12 +40,16 @@ public class JwtTokenProvider {
         if (storeId != null) {
             claims.put("storeId", storeId.toString());
         }
-        return createToken(claims, userDetails.getUsername());
+        return createToken(claims, userDetails.getUsername(), jwtExpirationDate);
     }
 
-    private String createToken(Map<String, Object> claims, String subject) {
+    public String generateRefreshToken(UserDetails userDetails) {
+        return createToken(new HashMap<>(), userDetails.getUsername(), refreshExpirationDate);
+    }
+
+    private String createToken(Map<String, Object> claims, String subject, long expiryMs) {
         Date now = new Date();
-        Date expiry = new Date(now.getTime() + jwtExpirationDate);
+        Date expiry = new Date(now.getTime() + expiryMs);
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(subject)

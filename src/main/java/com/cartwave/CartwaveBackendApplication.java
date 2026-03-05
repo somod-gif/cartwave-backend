@@ -5,6 +5,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 
 @SpringBootApplication(scanBasePackages = "com.cartwave")
@@ -12,6 +14,8 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 @EnableJpaAuditing(auditorAwareRef = "auditAwareImpl")
 @EnableMethodSecurity
 @EnableWebSecurity
+@EnableScheduling
+@EnableAsync
 public class CartwaveBackendApplication {
 
     public static void main(String[] args) {
