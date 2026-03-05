@@ -4,6 +4,12 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
+# Maven generated sources
+**/target/generated-sources/
+**/target/generated-test-sources/
+**/target/generated-sources/annotations/
+**/target/generated-test-sources/test-annotations/
+
 ### STS ###
 .apt_generated
 .classpath
@@ -37,3 +43,5 @@ build/
 # local environment variables
 .env.local
 .env.*.local
+.env.development
+.env.production
