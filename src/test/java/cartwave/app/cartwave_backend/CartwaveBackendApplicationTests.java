@@ -1,6 +1,4 @@
-package cartwave.app.cartwave_backend;
-
-import com.cartwave.CartwaveBackendApplication;
+package com.cartwave;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 

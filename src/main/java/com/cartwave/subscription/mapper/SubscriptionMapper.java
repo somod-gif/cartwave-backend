@@ -4,8 +4,9 @@ import com.cartwave.subscription.dto.SubscriptionDTO;
 import com.cartwave.subscription.entity.Subscription;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.ReportingPolicy;
 
-@Mapper(componentModel = "spring", builder = @org.mapstruct.Builder(disableBuilder = true))
+@Mapper(componentModel = "spring", builder = @org.mapstruct.Builder(disableBuilder = true), unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface SubscriptionMapper {
 
     SubscriptionDTO toSubscriptionDTO(Subscription subscription);
