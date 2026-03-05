@@ -3,40 +3,59 @@ spring:
     name: cartwave-backend
 
   datasource:
-    url: ${DATABASE_URL:${DB_URL:jdbc:h2:mem:cartwave;DB_CLOSE_DELAY=-1}}
-    username: ${DB_USERNAME:${DB_USER:sa}}
-    password: ${DB_PASSWORD:}
+    url: ${DATABASE_URL:${DB_URL:jdbc:postgresql://ep-nameless-band-ai29duaf-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require}}
+    username: ${DB_USERNAME:${DB_USER:neondb_owner}}
+    password: ${DB_PASSWORD}
 
   flyway:
-    enabled: false
+    enabled: true
     baseline-on-migrate: true
-    locations: classpath:db/migration/cartwave
-    validate-on-migrate: false
+    locations: classpath:db/migration
 
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: false
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
 
+  mail:
+    host: ${SMTP_HOST:localhost}
+    port: ${SMTP_PORT:1025}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${SMTP_AUTH:false}
+          starttls:
+            enable: ${SMTP_STARTTLS:false}
 
 server:
   port: ${PORT:8080}
 
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health
-  endpoint:
-    health:
-      probes:
-        enabled: true
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
 
 app:
-  jwt-secret: ${JWT_SECRET:dev-secret}
-  jwt-expiration-milliseconds: 86400000
+  jwt-secret: ${JWT_SECRET:dev-secret-dev-secret-dev-secret-dev-secret}
+  jwt-expiration-milliseconds: ${JWT_ACCESS_EXPIRATION_MS:900000}
 
 jwt:
-  secret: ${JWT_SECRET:dev-secret}
-  access-token-expiration: 900000
-  refresh-token-expiration: 604800000
+  secret: ${JWT_SECRET:dev-secret-dev-secret-dev-secret-dev-secret}
+  access-token-expiration: ${JWT_ACCESS_EXPIRATION_MS:900000}
+  refresh-token-expiration: ${JWT_REFRESH_EXPIRATION_MS:604800000}
+
+cartwave:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
+  jobs:
+    email-dispatch-ms: ${JOB_EMAIL_DISPATCH_MS:30000}
+    escrow-release-cron: ${JOB_ESCROW_RELEASE_CRON:0 */15 * * * *}
+    subscription-expiration-cron: ${JOB_SUBSCRIPTION_EXPIRATION_CRON:0 0 * * * *}
+    kpi-aggregation-cron: ${JOB_KPI_AGGREGATION_CRON:0 */30 * * * *}
+    fraud-scan-cron: ${JOB_FRAUD_SCAN_CRON:0 */10 * * * *}

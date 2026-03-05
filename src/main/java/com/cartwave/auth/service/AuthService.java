@@ -1,7 +1,11 @@
 package com.cartwave.auth.service;
 
+import com.cartwave.auth.dto.JwtAuthResponse;
 import com.cartwave.auth.dto.LoginRequest;
+import com.cartwave.auth.dto.RefreshTokenRequest;
 import com.cartwave.auth.dto.RegisterRequest;
+import com.cartwave.auth.dto.UserDTO;
+import com.cartwave.exception.UnauthorizedException;
 import com.cartwave.security.service.JwtTokenProvider;
 import com.cartwave.user.entity.User;
 import com.cartwave.user.entity.UserRole;
@@ -12,6 +16,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -22,30 +27,56 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
+    private final LoginAttemptService loginAttemptService;
+    private final UserDetailsService userDetailsService;
 
     public AuthService(AuthenticationManager authenticationManager,
                        UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
-                       JwtTokenProvider tokenProvider) {
+                       JwtTokenProvider tokenProvider,
+                       LoginAttemptService loginAttemptService,
+                       UserDetailsService userDetailsService) {
         this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenProvider = tokenProvider;
+        this.loginAttemptService = loginAttemptService;
+        this.userDetailsService = userDetailsService;
     }
 
-    public String login(LoginRequest loginRequest) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        loginRequest.getEmail(),
-                        loginRequest.getPassword()
-                )
-        );
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        UserDetails principal = (UserDetails) authentication.getPrincipal();
-        return tokenProvider.generateToken(principal);
+    public JwtAuthResponse login(LoginRequest loginRequest) {
+        if (loginAttemptService.isLocked(loginRequest.getEmail())) {
+            throw new UnauthorizedException("Too many login attempts. Account temporarily locked.");
+        }
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword()));
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+            UserDetails principal = (UserDetails) authentication.getPrincipal();
+            loginAttemptService.onSuccess(loginRequest.getEmail());
+            return JwtAuthResponse.builder()
+                    .accessToken(tokenProvider.generateToken(principal))
+                    .refreshToken(tokenProvider.generateRefreshToken(principal))
+                    .build();
+        } catch (Exception ex) {
+            loginAttemptService.onFailure(loginRequest.getEmail());
+            throw ex;
+        }
     }
 
-    public User register(RegisterRequest registerRequest) {
+    public JwtAuthResponse refreshToken(RefreshTokenRequest request) {
+        String username = tokenProvider.extractUsername(request.getRefreshToken());
+        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+        if (!tokenProvider.validateToken(request.getRefreshToken(), userDetails)) {
+            throw new UnauthorizedException("Invalid refresh token");
+        }
+        return JwtAuthResponse.builder()
+                .accessToken(tokenProvider.generateToken(userDetails))
+                .refreshToken(tokenProvider.generateRefreshToken(userDetails))
+                .build();
+    }
+
+    public UserDTO register(RegisterRequest registerRequest) {
         if (userRepository.findByEmail(registerRequest.getEmail()).isPresent()) {
             throw new RuntimeException("Email address already in use.");
         }
@@ -55,6 +86,13 @@ public class AuthService {
         user.setRole(UserRole.valueOf(registerRequest.getRole()));
         user.setStatus(UserStatus.ACTIVE);
         user.setDeleted(false);
-        return userRepository.save(user);
+        User saved = userRepository.save(user);
+
+        return UserDTO.builder()
+                .id(saved.getId())
+                .email(saved.getEmail())
+                .role(saved.getRole().name())
+                .status(saved.getStatus().name())
+                .build();
     }
 }
