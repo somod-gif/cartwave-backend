@@ -1,78 +1,53 @@
-# CartWave Backend MVP
+# CartWave Backend
 
-Spring Boot backend for the CartWave multi-tenant commerce MVP.
+Multi-tenant e-commerce platform backend built with **Spring Boot 3**, **PostgreSQL**, **JWT authentication**, and **Flyway** migrations.
 
-## What is included
-- JWT auth with access and refresh tokens.
-- Tenant-aware store access carried in JWT `storeId`.
-- Public self-service signup for `BUSINESS_OWNER` and `CUSTOMER` only.
-- Owner and staff backoffice for stores, products, orders, staff, billing, subscriptions, and dashboards.
-- Customer profile, cart, checkout, order history, and internal payment stub flows.
-- Public storefront endpoints under `/api/v1/public/stores/{slug}`.
-- Flyway migrations with forward-only schema alignment in `V2__mvp_alignment.sql`.
-- Scheduled jobs for subscription expiry, KPI snapshots, fraud flags, escrow release, and email dispatch.
-
-## Requirements
-- Java 21
-- Docker optional, only for the PostgreSQL-backed integration test
-- PostgreSQL for local runtime
-
-## Configuration
-Set these environment variables before starting the app:
-
-- `DB_URL` or `DATABASE_URL`
-- `DB_USER` or `DB_USERNAME`
-- `DB_PASSWORD`
-- `JWT_SECRET`
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` as needed
-
-Defaults in `application.yaml` keep mail local-friendly and expose:
-
-- Swagger UI: `http://localhost:8080/swagger-ui.html`
-- OpenAPI JSON: `http://localhost:8080/api-docs`
-- Health: `http://localhost:8080/api/v1/health`
-
-## Run
-Windows:
-
-```powershell
-.\mvnw.cmd spring-boot:run
-```
-
-macOS/Linux:
+## Quick Start
 
 ```bash
+# Prerequisites: Java 17+, PostgreSQL (or use local H2 profile)
+
+# 1. Run with local H2 database (no Postgres needed)
+./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+
+# 2. Or run with PostgreSQL
+export DATABASE_URL=jdbc:postgresql://localhost:5432/cartwave
+export DB_USERNAME=cartwave
+export DB_PASSWORD=yourpassword
 ./mvnw spring-boot:run
+
+# 3. Or Docker
+docker build -t cartwave-backend .
+docker run -p 8080:8080 -e DATABASE_URL=... cartwave-backend
 ```
 
-The wrapper is configured to use a repo-local Maven cache at `.m2repo/`.
+**Base URL:** `http://localhost:8080`  
+**Health check:** `GET /api/v1/health`
 
-## Seeded data
-Startup seeds subscription plans and one super admin account:
+## Environment Variables
 
-- Email: `superadmin@cartwave.local`
-- Password: `Password123!`
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `8080` | Server port |
+| `DATABASE_URL` | `jdbc:postgresql://localhost:5432/cartwave` | PostgreSQL connection URL |
+| `DB_USERNAME` | `cartwave` | Database username |
+| `DB_PASSWORD` | — | Database password |
+| `JWT_SECRET` | dev fallback | Secret key for signing JWTs |
+| `JWT_ACCESS_EXPIRATION_MS` | `900000` (15 min) | Access token TTL |
+| `JWT_REFRESH_EXPIRATION_MS` | `604800000` (7 days) | Refresh token TTL |
+| `SMTP_HOST` | `localhost` | SMTP server host |
+| `SMTP_PORT` | `1025` | SMTP server port |
+| `CORS_ALLOWED_ORIGINS` | `*` | Allowed CORS origins |
 
-## Auth and tenancy rules
-- `POST /api/v1/auth/register` accepts only `CUSTOMER` and `BUSINESS_OWNER`.
-- `CUSTOMER` registration requires `storeId`.
-- `BUSINESS_OWNER` registers first, then creates a store after login.
-- Login accepts optional `storeId`; it becomes required when the account can access multiple stores.
-- Auth endpoints return raw `JwtAuthResponse`.
-- All non-auth endpoints return `ApiResponse<T>`.
+## Architecture
 
-## Tests
-Run:
+- **Multi-tenant** — each store is an isolated tenant; JWT carries `storeId`, resolved via `TenantContext`
+- **JWT auth** — stateless, Bearer token in `Authorization` header
+- **5 roles** — `SUPER_ADMIN`, `ADMIN`, `BUSINESS_OWNER`, `STAFF`, `CUSTOMER`
+- **17 database tables** — managed by Flyway migration
+- **Background jobs** — email dispatch, escrow release, subscription expiry, KPI aggregation, fraud scanning
 
-```powershell
-.\mvnw.cmd test
-```
+## Documentation
 
-Included tests cover auth, JWT tenancy, checkout behavior, and a PostgreSQL-backed integration test. The PostgreSQL integration test uses Testcontainers and skips automatically when Docker is unavailable.
+See **[DOCUMENTATION/API.md](DOCUMENTATION/API.md)** for the complete API reference — all 38 endpoints, request/response schemas, enums, authentication guide, and frontend integration spec.
 
-## Docs
-- API summary: `API_OVERVIEW.md`
-- Local usage: `QUICK_START.md`
-- Frontend integration notes: `DOCUMENTATION/FRONTEND_AND_API_SPEC.md`
-- Testing and Postman guide: `DOCUMENTATION/BACKEND_CAPABILITY_AND_FRONTEND_SPEC.md`
-- Postman collection: `DOCUMENTATION/postman_collection.json`
