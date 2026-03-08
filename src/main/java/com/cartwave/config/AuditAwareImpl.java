@@ -22,8 +22,8 @@ public class AuditAwareImpl implements AuditorAware<UUID> {
         }
 
         Object principal = authentication.getPrincipal();
-        if (principal instanceof UUID uuid) {
-            return Optional.of(uuid);
+        if (principal instanceof com.cartwave.security.model.CurrentUserPrincipal currentUser) {
+            return Optional.of(currentUser.getUserId());
         }
 
         return Optional.empty();

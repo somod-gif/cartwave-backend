@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -20,10 +21,15 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     @Query("SELECT p FROM Product p WHERE p.storeId = :storeId AND p.deleted = false")
     Page<Product> findByStoreId(@Param("storeId") UUID storeId, Pageable pageable);
 
+    @Query("SELECT p FROM Product p WHERE p.storeId = :storeId AND p.deleted = false ORDER BY p.createdAt DESC")
+    List<Product> findAllByStoreId(@Param("storeId") UUID storeId);
+
     @Query("SELECT p FROM Product p WHERE p.sku = :sku AND p.storeId = :storeId AND p.deleted = false")
     Optional<Product> findBySkuAndStoreId(@Param("sku") String sku, @Param("storeId") UUID storeId);
 
     // count current non-deleted products for a store
     long countByStoreIdAndDeletedFalse(UUID storeId);
+
+    long countByStoreIdAndStockLessThanEqualAndDeletedFalse(UUID storeId, Long stock);
 
 }

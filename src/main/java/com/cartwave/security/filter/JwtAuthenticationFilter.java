@@ -1,8 +1,8 @@
 package com.cartwave.security.filter;
 
-import com.cartwave.security.service.CustomUserDetailsService;
 import com.cartwave.security.service.JwtTokenProvider;
-import com.cartwave.store.repository.StoreRepository;
+import com.cartwave.security.model.CurrentUserPrincipal;
+import com.cartwave.security.service.CustomUserDetailsService;
 import com.cartwave.tenant.TenantContext;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -16,7 +16,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Optional;
 import java.util.UUID;
 
 @Component
@@ -24,12 +23,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
     private final CustomUserDetailsService customUserDetailsService;
-    private final StoreRepository storeRepository;
 
-    public JwtAuthenticationFilter(JwtTokenProvider tokenProvider, CustomUserDetailsService customUserDetailsService, StoreRepository storeRepository) {
+    public JwtAuthenticationFilter(JwtTokenProvider tokenProvider, CustomUserDetailsService customUserDetailsService) {
         this.tokenProvider = tokenProvider;
         this.customUserDetailsService = customUserDetailsService;
-        this.storeRepository = storeRepository;
     }
 
     @Override
@@ -37,32 +34,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         String jwt = getJwtFromRequest(request);
-        UUID previousTenant = null;
 
         try {
             if (jwt != null) {
                 String username = tokenProvider.extractUsername(jwt);
                 UUID storeId = tokenProvider.extractStoreId(jwt);
-
-                if (storeId == null) {
-                    // fallback: if only one store exists, use it for local/testing convenience
-                    Optional<com.cartwave.store.entity.Store> single = storeRepository.findAll().stream().findFirst();
-                    if (single.isPresent()) {
-                        storeId = single.get().getId();
-                    }
-                }
-
-                if (storeId != null) {
-                    // preserve previous tenant if any (defensive)
-                    if (TenantContext.isSet()) {
-                        previousTenant = TenantContext.getTenantId();
-                    }
-                    TenantContext.setTenantId(storeId);
-                }
+                UUID tenantId = tokenProvider.extractTenantId(jwt);
 
                 if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                    UserDetails userDetails = customUserDetailsService.loadUserByUsername(username);
+                    CurrentUserPrincipal userDetails = customUserDetailsService.loadUserByUsernameAndStoreId(username, storeId);
                     if (tokenProvider.validateToken(jwt, userDetails)) {
+                        if (tenantId != null) {
+                            TenantContext.setTenantId(tenantId);
+                        }
                         UsernamePasswordAuthenticationToken authentication =
                                 new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
@@ -73,14 +57,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             filterChain.doFilter(request, response);
         } finally {
-            // Clear tenant context to avoid leaking between requests/threads
-            try {
-                TenantContext.clear();
-                if (previousTenant != null) {
-                    TenantContext.setTenantId(previousTenant);
-                }
-            } catch (Exception ignored) {
-            }
+            TenantContext.clear();
         }
     }
 

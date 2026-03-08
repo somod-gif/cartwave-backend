@@ -27,6 +27,16 @@
 @REM   MVNW_VERBOSE - true: enable verbose log; others: silence the output
 @REM ----------------------------------------------------------------------------
 
+@where mvn.cmd >NUL 2>NUL
+@IF "%ERRORLEVEL%"=="0" (
+  @FOR /F "delims=" %%I IN ('where mvn.cmd') DO @(
+    @IF /I NOT "%%~fI"=="%~f0" (
+      @call "%%~fI" "-Dmaven.repo.local=%~dp0.m2repo" %*
+      @exit /b %ERRORLEVEL%
+    )
+  )
+)
+
 @IF "%__MVNW_ARG0_NAME__%"=="" (SET __MVNW_ARG0_NAME__=%~nx0)
 @SET __MVNW_CMD__=
 @SET __MVNW_ERROR__=

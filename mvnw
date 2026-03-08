@@ -29,6 +29,10 @@
 #   MVNW_VERBOSE - true: enable verbose log; debug: trace the mvnw script; others: silence the output
 # ----------------------------------------------------------------------------
 
+if command -v mvn >/dev/null 2>&1; then
+  exec mvn "-Dmaven.repo.local=$(pwd)/.m2repo" "$@"
+fi
+
 set -euf
 [ "${MVNW_VERBOSE-}" != debug ] || set -x
 

@@ -1,29 +1,30 @@
 package com.cartwave.admin.controller;
 
 import com.cartwave.common.dto.ApiResponse;
+import com.cartwave.dashboard.dto.AdminDashboardResponse;
+import com.cartwave.dashboard.service.DashboardService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-@Slf4j
 @RestController
-@RequestMapping("/admin")
+@RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_OWNER')")
+@PreAuthorize("hasAnyRole('ADMIN', 'BUSINESS_OWNER', 'STAFF')")
 public class AdminController {
 
+    private final DashboardService dashboardService;
+
     @GetMapping("/dashboard")
-    public ResponseEntity<ApiResponse<String>> getDashboard() {
-        log.info("Admin dashboard endpoint called");
-        return ResponseEntity.ok(ApiResponse.success("Dashboard data", "Placeholder data"));
+    public ResponseEntity<ApiResponse<AdminDashboardResponse>> getDashboard() {
+        return ResponseEntity.ok(ApiResponse.success("Dashboard data", dashboardService.getAdminDashboard()));
     }
 
     @GetMapping("/stats")
-    public ResponseEntity<ApiResponse<String>> getStats() {
-        log.info("Admin stats endpoint called");
-        return ResponseEntity.ok(ApiResponse.success("Stats data", "Placeholder data"));
+    public ResponseEntity<ApiResponse<AdminDashboardResponse>> getStats() {
+        return ResponseEntity.ok(ApiResponse.success("Stats data", dashboardService.getAdminDashboard()));
     }
-
 }

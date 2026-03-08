@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.UUID;
 
 @Data
@@ -15,6 +16,7 @@ import java.util.UUID;
 public class OrderDTO {
 
     private UUID id;
+    private UUID storeId;
     private String orderNumber;
     private UUID customerId;
     private BigDecimal totalAmount;
@@ -25,6 +27,10 @@ public class OrderDTO {
     private String paymentStatus;
     private String deliveryAddress;
     private String customerEmail;
+    private String customerPhoneNumber;
     private String notes;
+    private Long completedAt;
+    private Long releaseAt;
+    private Instant createdAt;
 
 }

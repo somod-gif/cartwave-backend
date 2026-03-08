@@ -1,5 +1,6 @@
 package com.cartwave.email.controller;
 
+import com.cartwave.common.dto.ApiResponse;
 import com.cartwave.email.dto.EmailEnqueueRequest;
 import com.cartwave.email.dto.EmailQueueResponse;
 import com.cartwave.email.service.EmailQueueService;
@@ -19,7 +20,10 @@ public class EmailQueueController {
     }
 
     @PostMapping("/enqueue")
-    public ResponseEntity<EmailQueueResponse> enqueue(@Valid @RequestBody EmailEnqueueRequest request) {
-        return new ResponseEntity<>(emailQueueService.enqueue(request), HttpStatus.ACCEPTED);
+    public ResponseEntity<ApiResponse<EmailQueueResponse>> enqueue(@Valid @RequestBody EmailEnqueueRequest request) {
+        return new ResponseEntity<>(
+                ApiResponse.success("Email queued successfully", emailQueueService.enqueue(request)),
+                HttpStatus.ACCEPTED
+        );
     }
 }

@@ -1,6 +1,7 @@
 package com.cartwave.auth.controller;
 
 import com.cartwave.auth.dto.*;
+import com.cartwave.common.dto.ApiResponse;
 import com.cartwave.auth.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -28,7 +29,10 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<UserDTO> register(@Valid @RequestBody RegisterRequest registerRequest) {
-        return new ResponseEntity<>(authService.register(registerRequest), HttpStatus.CREATED);
+    public ResponseEntity<ApiResponse<UserDTO>> register(@Valid @RequestBody RegisterRequest registerRequest) {
+        return new ResponseEntity<>(
+                ApiResponse.success("User registered successfully", authService.register(registerRequest)),
+                HttpStatus.CREATED
+        );
     }
 }

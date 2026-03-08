@@ -65,4 +65,7 @@ public class Order extends BaseEntity {
     @Column
     private Long completedAt;
 
+    @Column
+    private Long releaseAt;
+
 }

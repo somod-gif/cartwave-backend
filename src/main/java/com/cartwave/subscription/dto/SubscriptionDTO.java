@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.UUID;
 
 @Data
@@ -21,5 +22,11 @@ public class SubscriptionDTO {
     private BigDecimal amount;
     private String billingCycle;
     private Boolean autoRenewal;
+    private Long startDate;
+    private Long endDate;
+    private Long renewalDate;
+    private String features;
+    private UUID planId;
+    private Instant createdAt;
 
 }

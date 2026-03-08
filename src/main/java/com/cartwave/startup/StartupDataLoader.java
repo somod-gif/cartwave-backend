@@ -1,19 +1,11 @@
 package com.cartwave.startup;
 
-import com.cartwave.store.entity.Store;
-import com.cartwave.store.repository.StoreRepository;
-import com.cartwave.subscription.entity.Subscription;
 import com.cartwave.subscription.entity.SubscriptionPlan;
 import com.cartwave.subscription.repository.SubscriptionPlanRepository;
-import com.cartwave.subscription.repository.SubscriptionRepository;
 import com.cartwave.user.entity.User;
 import com.cartwave.user.entity.UserRole;
 import com.cartwave.user.entity.UserStatus;
 import com.cartwave.user.repository.UserRepository;
-import com.cartwave.staff.entity.Staff;
-import com.cartwave.staff.entity.StaffRole;
-import com.cartwave.staff.entity.StaffStatus;
-import com.cartwave.staff.repository.StaffRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
@@ -30,17 +22,13 @@ import java.util.Optional;
 public class StartupDataLoader implements ApplicationRunner {
 
     private final SubscriptionPlanRepository planRepository;
-    private final StoreRepository storeRepository;
-    private final SubscriptionRepository subscriptionRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final StaffRepository staffRepository;
 
     @Override
-    public void run(ApplicationArguments args) throws Exception {
+    public void run(ApplicationArguments args) {
         seedPlans();
-        seedDefaultStoreAndSubscription();
-        seedDefaultUserAndStaff();
+        seedSuperAdmin();
     }
 
     private void seedPlans() {
@@ -52,7 +40,9 @@ public class StartupDataLoader implements ApplicationRunner {
 
     private void createIfMissing(String name, String desc, int productLimit, int staffLimit, boolean payments, boolean customDomain, BigDecimal price) {
         Optional<SubscriptionPlan> existing = planRepository.findByName(name);
-        if (existing.isPresent()) return;
+        if (existing.isPresent()) {
+            return;
+        }
 
         SubscriptionPlan plan = SubscriptionPlan.builder()
                 .name(name)
@@ -62,55 +52,24 @@ public class StartupDataLoader implements ApplicationRunner {
                 .paymentsEnabled(payments)
                 .customDomainEnabled(customDomain)
                 .price(price)
+                .active(true)
                 .build();
         planRepository.save(plan);
         log.info("Seeded subscription plan: {}", name);
     }
 
-    private void seedDefaultStoreAndSubscription() {
-        // create a store if none exists so testers can use a store id
-        if (storeRepository.count() == 0) {
-            Store store = new Store();
-            store.setName("Default Store");
-            store.setSlug("default-store");
-            store.setDeleted(false);
-            storeRepository.save(store);
-            log.info("Created default store with id={}", store.getId());
-
-            Subscription sub = new Subscription();
-            sub.setStoreId(store.getId());
-            sub.setPlanName("FREE");
-            sub.setStatus(com.cartwave.subscription.entity.SubscriptionStatus.ACTIVE);
-            sub.setAmount(BigDecimal.ZERO);
-            sub.setAutoRenewal(true);
-            subscriptionRepository.save(sub);
-            log.info("Created default FREE subscription for store={}", store.getId());
+    private void seedSuperAdmin() {
+        if (userRepository.findByEmail("superadmin@cartwave.local").isPresent()) {
+            return;
         }
-    }
-
-    private void seedDefaultUserAndStaff() {
-        if (userRepository.count() == 0) {
-            User user = new User();
-            user.setEmail("admin@cartwave.local");
-            user.setPassword(passwordEncoder.encode("Password123!"));
-            user.setRole(UserRole.BUSINESS_OWNER);
-            user.setStatus(UserStatus.ACTIVE);
-            user.setDeleted(false);
-            userRepository.save(user);
-            log.info("Created default user: {} / Password: Password123!", user.getEmail());
-
-            // Attach to first store as staff
-            Optional<Store> storeOpt = storeRepository.findAll().stream().findFirst();
-            if (storeOpt.isPresent()) {
-                Staff staff = new Staff();
-                staff.setUserId(user.getId());
-                staff.setStoreId(storeOpt.get().getId());
-                staff.setRole(StaffRole.MANAGER);
-                staff.setStatus(StaffStatus.ACTIVE);
-                staff.setDeleted(false);
-                staffRepository.save(staff);
-                log.info("Created staff entry for user={} in store={}", user.getEmail(), storeOpt.get().getId());
-            }
-        }
+        User user = new User();
+        user.setEmail("superadmin@cartwave.local");
+        user.setPassword(passwordEncoder.encode("Password123!"));
+        user.setRole(UserRole.SUPER_ADMIN);
+        user.setStatus(UserStatus.ACTIVE);
+        user.setFirstName("System");
+        user.setLastName("Admin");
+        userRepository.save(user);
+        log.info("Seeded default super admin: superadmin@cartwave.local / Password123!");
     }
 }

@@ -9,8 +9,8 @@ import java.util.UUID;
 @Entity
 @Table(name = "stores", indexes = {
         @Index(name = "idx_stores_slug", columnList = "slug"),
-        @Index(name = "idx_stores_owner_id", columnList = "owner_id"),
-        @Index(name = "idx_stores_is_active", columnList = "is_active"),
+        @Index(name = "idx_stores_owner_id", columnList = "owner_user_id"),
+        @Index(name = "idx_stores_is_active", columnList = "active"),
         @Index(name = "idx_stores_deleted", columnList = "deleted")
 })
 @Data
@@ -35,14 +35,14 @@ public class Store extends BaseEntity {
     @Column(length = 10)
     private String currency;
 
-    @Column(nullable = false)
+    @Column(name = "owner_user_id", nullable = false)
     private UUID ownerId;
 
     @Column(length = 50)
     private String subscriptionPlan;
 
     @Builder.Default
-    @Column(nullable = false)
+    @Column(name = "active", nullable = false)
     private Boolean isActive = true;
 
     @Column(length = 500)

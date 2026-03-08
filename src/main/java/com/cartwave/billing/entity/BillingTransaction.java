@@ -10,6 +10,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "billing_transactions", indexes = {
         @Index(name = "idx_billing_store_id", columnList = "store_id"),
+        @Index(name = "idx_billing_order_id", columnList = "order_id"),
         @Index(name = "idx_billing_status", columnList = "status"),
         @Index(name = "idx_billing_deleted", columnList = "deleted")
 })
@@ -22,6 +23,9 @@ public class BillingTransaction extends BaseEntity {
 
     @Column(nullable = false)
     private UUID storeId;
+
+    @Column
+    private UUID orderId;
 
     @Column(nullable = false, unique = true, length = 50)
     private String transactionId;
@@ -50,5 +54,8 @@ public class BillingTransaction extends BaseEntity {
 
     @Column
     private Long processedAt;
+
+    @Column
+    private Long releaseAt;
 
 }

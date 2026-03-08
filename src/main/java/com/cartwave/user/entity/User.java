@@ -22,7 +22,7 @@ public class User extends BaseEntity {
     @Column(nullable = false, unique = true, length = 255)
     private String email;
 
-    @Column(nullable = false, length = 255)
+    @Column(name = "password_hash", nullable = false, length = 255)
     private String password;
 
     @Column(length = 255)
@@ -35,8 +35,8 @@ public class User extends BaseEntity {
     private String phoneNumber;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 50)
-    private UserRole role;
+    @Column(name = "role", nullable = false)
+    private UserRole role; // BUSINESS_OWNER | STAFF | CUSTOMER | ADMIN | SUPER_ADMIN
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)

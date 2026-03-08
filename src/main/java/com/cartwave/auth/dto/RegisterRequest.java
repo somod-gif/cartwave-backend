@@ -4,6 +4,8 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
+import java.util.UUID;
+
 @Data
 public class RegisterRequest {
 
@@ -16,5 +18,13 @@ public class RegisterRequest {
 
     @NotBlank
     private String role;
+
+    private String firstName;
+
+    private String lastName;
+
+    private String phoneNumber;
+
+    private UUID storeId;
 }
 

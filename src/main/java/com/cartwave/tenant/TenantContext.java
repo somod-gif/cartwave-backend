@@ -3,6 +3,7 @@ package com.cartwave.tenant;
 import com.cartwave.exception.TenantAccessDeniedException;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -24,6 +25,10 @@ public class TenantContext {
             throw new TenantAccessDeniedException("No tenant context found. Request must include valid store ID in JWT.");
         }
         return id;
+    }
+
+    public static Optional<UUID> getOptionalTenantId() {
+        return Optional.ofNullable(tenantId.get());
     }
 
     public static void clear() {

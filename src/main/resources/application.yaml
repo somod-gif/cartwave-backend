@@ -3,13 +3,23 @@ spring:
     name: cartwave-backend
 
   datasource:
-    url: ${DATABASE_URL:${DB_URL:jdbc:postgresql://ep-nameless-band-ai29duaf-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require}}
-    username: ${DB_USERNAME:${DB_USER:neondb_owner}}
-    password: ${DB_PASSWORD}
+    url: ${DATABASE_URL:${DB_URL:jdbc:postgresql://localhost:5432/cartwave}}
+    username: ${DB_USERNAME:${DB_USER:cartwave}}
+    password: ${DB_PASSWORD:}
+    hikari:
+      pool-name: CartWavePool
+      connection-timeout: ${DB_CONNECTION_TIMEOUT_MS:30000}
+      validation-timeout: ${DB_VALIDATION_TIMEOUT_MS:5000}
+      initialization-fail-timeout: ${DB_INIT_FAIL_TIMEOUT_MS:60000}
+      minimum-idle: ${DB_MIN_IDLE:2}
+      maximum-pool-size: ${DB_MAX_POOL_SIZE:10}
+      keepalive-time: ${DB_KEEPALIVE_MS:300000}
+      max-lifetime: ${DB_MAX_LIFETIME_MS:1800000}
 
   flyway:
     enabled: true
     baseline-on-migrate: true
+    clean-disabled: true
     locations: classpath:db/migration
 
   jpa:
@@ -39,7 +49,7 @@ springdoc:
   api-docs:
     path: /api-docs
   swagger-ui:
-    path: /swagger-ui.html
+    path: /swagger-ui/index.html
 
 app:
   jwt-secret: ${JWT_SECRET:dev-secret-dev-secret-dev-secret-dev-secret}

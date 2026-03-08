@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -21,5 +22,13 @@ public interface StoreRepository extends JpaRepository<Store, UUID> {
 
     @Query("SELECT s FROM Store s WHERE s.ownerId = :ownerId AND s.deleted = false")
     Optional<Store> findByOwnerId(@Param("ownerId") UUID ownerId);
+
+    @Query("SELECT s FROM Store s WHERE s.ownerId = :ownerId AND s.deleted = false ORDER BY s.createdAt ASC")
+    List<Store> findAllByOwnerId(@Param("ownerId") UUID ownerId);
+
+    @Query("SELECT s FROM Store s WHERE s.deleted = false ORDER BY s.createdAt ASC")
+    List<Store> findAllActive();
+
+    long countByDeletedFalse();
 
 }

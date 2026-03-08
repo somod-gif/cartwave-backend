@@ -38,8 +38,12 @@ public class SubscriptionPlan extends BaseEntity {
     @Column
     private Boolean customDomainEnabled;
 
-    @Column(precision = 19, scale = 2)
+    @Column(name = "monthly_price", precision = 19, scale = 2)
     private BigDecimal price;
+
+    @Builder.Default
+    @Column(nullable = false)
+    private Boolean active = true;
 
 }
 

@@ -1,13 +1,5 @@
 package com.cartwave.security.service;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.stereotype.Service;
-
-import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
@@ -15,53 +7,74 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
 
+import javax.crypto.SecretKey;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Service;
+
+import com.cartwave.user.entity.User;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+
 @Service
 public class JwtTokenProvider {
 
-    @Value("${app.jwt-secret}")
-    private String jwtSecret;
+    private final String jwtSecret;
+    private final long jwtExpirationDate;
+    private final long refreshExpirationDate;
 
-    @Value("${app.jwt-expiration-milliseconds}")
-    private long jwtExpirationDate;
-
-    @Value("${jwt.refresh-token-expiration:604800000}")
-    private long refreshExpirationDate;
+    public JwtTokenProvider(
+            @Value("${app.jwt-secret}") String jwtSecret,
+            @Value("${app.jwt-expiration-milliseconds}") long jwtExpirationDate,
+            @Value("${jwt.refresh-token-expiration:604800000}") long refreshExpirationDate
+    ) {
+        this.jwtSecret = jwtSecret;
+        this.jwtExpirationDate = jwtExpirationDate;
+        this.refreshExpirationDate = refreshExpirationDate;
+    }
 
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateToken(UserDetails userDetails) {
-        return generateToken(userDetails, null);
+    public String generateToken(User user, UUID storeId) {
+        return createToken(buildClaims(user, storeId, "ACCESS"), user.getEmail(), jwtExpirationDate);
     }
 
-    public String generateToken(UserDetails userDetails, UUID storeId) {
+    public String generateRefreshToken(User user, UUID storeId) {
+        return createToken(buildClaims(user, storeId, "REFRESH"), user.getEmail(), refreshExpirationDate);
+    }
+
+    private Map<String, Object> buildClaims(User user, UUID storeId, String tokenType) {
         Map<String, Object> claims = new HashMap<>();
+        claims.put("userId", user.getId().toString());
+        claims.put("role", user.getRole().name());
+        claims.put("tokenType", tokenType);
         if (storeId != null) {
             claims.put("storeId", storeId.toString());
+            claims.put("tenantId", storeId.toString());
         }
-        return createToken(claims, userDetails.getUsername(), jwtExpirationDate);
-    }
-
-    public String generateRefreshToken(UserDetails userDetails) {
-        return createToken(new HashMap<>(), userDetails.getUsername(), refreshExpirationDate);
+        return claims;
     }
 
     private String createToken(Map<String, Object> claims, String subject, long expiryMs) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expiryMs);
         return Jwts.builder()
-                .setClaims(claims)
-                .setSubject(subject)
-                .setIssuedAt(now)
-                .setExpiration(expiry)
+                .claims(claims)
+                .subject(subject)
+                .issuedAt(now)
+                .expiration(expiry)
                 .signWith(getSigningKey())
                 .compact();
     }
 
-    public Boolean validateToken(String token, UserDetails userDetails) {
+    public boolean validateToken(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
-        return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
+        return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
     }
 
     public String extractUsername(String token) {
@@ -73,26 +86,45 @@ public class JwtTokenProvider {
     }
 
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
-        final Claims claims = extractAllClaims(token);
+        Claims claims = extractAllClaims(token);
         return claimsResolver.apply(claims);
     }
 
     private Claims extractAllClaims(String token) {
-        @SuppressWarnings("deprecation")
-        io.jsonwebtoken.JwtParser parser = Jwts.parser()
-                .setSigningKey(getSigningKey())
-                .build();
-        return parser.parseClaimsJws(token).getBody();
+        return Jwts.parser()
+                .verifyWith(getSigningKey())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
     }
 
     public UUID extractStoreId(String token) {
-        Claims claims = extractAllClaims(token);
-        String storeId = claims.get("storeId", String.class);
-        if (storeId == null) return null;
-        return UUID.fromString(storeId);
+        String storeId = extractClaim(token, claims -> claims.get("storeId", String.class));
+        return storeId == null ? null : UUID.fromString(storeId);
     }
 
-    private Boolean isTokenExpired(String token) {
+    public UUID extractTenantId(String token) {
+        String tenantId = extractClaim(token, claims -> claims.get("tenantId", String.class));
+        if (tenantId == null) {
+            return extractStoreId(token);
+        }
+        return UUID.fromString(tenantId);
+    }
+
+    public UUID extractUserId(String token) {
+        String userId = extractClaim(token, claims -> claims.get("userId", String.class));
+        return userId == null ? null : UUID.fromString(userId);
+    }
+
+    public String extractRole(String token) {
+        return extractClaim(token, claims -> claims.get("role", String.class));
+    }
+
+    public String extractTokenType(String token) {
+        return extractClaim(token, claims -> claims.get("tokenType", String.class));
+    }
+
+    private boolean isTokenExpired(String token) {
         return extractExpiration(token).before(new Date());
     }
 }

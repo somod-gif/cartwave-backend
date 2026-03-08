@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -20,5 +21,14 @@ public interface StaffRepository extends JpaRepository<Staff, UUID> {
 
     // count current non-deleted staff for a store
     long countByStoreIdAndDeletedFalse(UUID storeId);
+
+    @Query("SELECT s FROM Staff s WHERE s.storeId = :storeId AND s.deleted = false ORDER BY s.createdAt ASC")
+    List<Staff> findByStoreId(@Param("storeId") UUID storeId);
+
+    @Query("SELECT s.storeId FROM Staff s WHERE s.userId = :userId AND s.deleted = false")
+    List<UUID> findStoreIdsByUserId(@Param("userId") UUID userId);
+
+    @Query("SELECT COUNT(s) FROM Staff s WHERE s.userId = :userId AND s.status = 'ACTIVE' AND s.deleted = false")
+    long countActiveByUserId(@Param("userId") UUID userId);
 
 }

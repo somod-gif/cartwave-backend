@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Data
@@ -25,5 +26,13 @@ public class StoreDTO {
     private String websiteUrl;
     // allow toggling custom domain from UI
     private Boolean customDomain;
+    private String bannerUrl;
+    private String businessAddress;
+    private String businessRegistrationNumber;
+    private String businessPhoneNumber;
+    private String businessEmail;
+    private UUID ownerId;
+    private Instant createdAt;
+    private Instant updatedAt;
 
 }

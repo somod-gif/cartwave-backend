@@ -52,4 +52,7 @@ public class Subscription extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String features;
 
+    @Column(name = "plan_id")
+    private UUID planId;
+
 }

@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -21,5 +22,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     @Query("SELECT CASE WHEN COUNT(u) > 0 THEN true ELSE false END FROM User u WHERE u.email = :email AND u.deleted = false")
     boolean existsByEmailAndNotDeleted(@Param("email") String email);
+
+    @Query("SELECT u FROM User u WHERE u.role = :role AND u.deleted = false")
+    List<User> findByRole(@Param("role") com.cartwave.user.entity.UserRole role);
+
+    long countByDeletedFalse();
 
 }
