@@ -40,4 +40,9 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
 
     long countByDeletedFalse();
 
+    @Query("SELECT o FROM Order o WHERE o.customerId = :customerId AND o.deleted = false ORDER BY o.createdAt DESC")
+    List<Order> findByCustomerId(@Param("customerId") UUID customerId);
+
+    @Query("SELECT o FROM Order o WHERE o.storeId = :storeId AND o.deleted = false ORDER BY o.createdAt DESC")
+    List<Order> findAllByStoreId(@Param("storeId") UUID storeId);
 }

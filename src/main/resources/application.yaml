@@ -35,12 +35,15 @@ spring:
     port: ${SMTP_PORT:1025}
     username: ${SMTP_USERNAME:}
     password: ${SMTP_PASSWORD:}
+    from: ${MAIL_FROM:noreply@cartwave.store}
     properties:
       mail:
         smtp:
           auth: ${SMTP_AUTH:false}
           starttls:
             enable: ${SMTP_STARTTLS:false}
+          ssl:
+            enable: ${SMTP_SSL:false}
 
 server:
   port: ${PORT:8080}
@@ -60,9 +63,20 @@ jwt:
   access-token-expiration: ${JWT_ACCESS_EXPIRATION_MS:900000}
   refresh-token-expiration: ${JWT_REFRESH_EXPIRATION_MS:604800000}
 
+aws:
+  access-key-id: ${AWS_ACCESS_KEY_ID:}
+  secret-access-key: ${AWS_SECRET_ACCESS_KEY:}
+  region: ${AWS_REGION:eu-west-1}
+  s3:
+    bucket-name: ${AWS_S3_BUCKET_NAME:cartwave-assets}
+    base-url: ${AWS_S3_BASE_URL:https://cartwave-assets.s3.eu-west-1.amazonaws.com}
+
 cartwave:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
+  superadmin:
+    email: ${SUPERADMIN_EMAIL:superadmin@cartwave.local}
+    password: ${SUPERADMIN_PASSWORD:Password123!}
   jobs:
     email-dispatch-ms: ${JOB_EMAIL_DISPATCH_MS:30000}
     escrow-release-cron: ${JOB_ESCROW_RELEASE_CRON:0 */15 * * * *}

@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.Instant;
+
 @Getter
 @Setter
 @Entity
@@ -32,4 +34,8 @@ public class EmailQueue extends BaseEntity {
 
     @Column(name = "error_message")
     private String errorMessage;
+
+    /** Timestamp when the email was successfully dispatched */
+    @Column(name = "sent_at")
+    private Instant sentAt;
 }

@@ -61,4 +61,21 @@ public class Product extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String attributes;
 
+    // ── V2 Product fields ─────────────────────────────────────────────────────
+
+    /** Comma-separated tag list */
+    @Column(name = "tags", columnDefinition = "TEXT")
+    private String tags;
+
+    /** Whether the product is publicly visible on the storefront */
+    @Builder.Default
+    @Column(name = "is_published", nullable = false)
+    private Boolean isPublished = false;
+
+    @Column(name = "seo_title", length = 255)
+    private String seoTitle;
+
+    @Column(name = "seo_description", columnDefinition = "TEXT")
+    private String seoDescription;
+
 }

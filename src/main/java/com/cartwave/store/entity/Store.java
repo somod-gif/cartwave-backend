@@ -11,7 +11,9 @@ import java.util.UUID;
         @Index(name = "idx_stores_slug", columnList = "slug"),
         @Index(name = "idx_stores_owner_id", columnList = "owner_user_id"),
         @Index(name = "idx_stores_is_active", columnList = "active"),
-        @Index(name = "idx_stores_deleted", columnList = "deleted")
+        @Index(name = "idx_stores_deleted", columnList = "deleted"),
+        @Index(name = "idx_stores_subdomain", columnList = "subdomain"),
+        @Index(name = "idx_stores_store_status", columnList = "store_status")
 })
 @Data
 @Builder
@@ -65,5 +67,42 @@ public class Store extends BaseEntity {
 
     @Column(length = 255)
     private String businessEmail;
+
+    // ── V2 Store Builder fields ───────────────────────────────────────────────
+
+    /** UI template preference */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "template", length = 20)
+    private StoreTemplate template;
+
+    /** Primary brand colour, hex string e.g. #1A73E8 */
+    @Column(name = "brand_color", length = 20)
+    private String brandColor;
+
+    /** Custom domain e.g. www.mybrand.com (requires plan feature) */
+    @Column(name = "custom_domain_name", length = 255)
+    private String customDomainName;
+
+    /** Auto-generated subdomain e.g. mybrand.cartwave.store */
+    @Column(name = "subdomain", length = 255, unique = true)
+    private String subdomain;
+
+    /** Lifecycle status — separate from the legacy isActive flag */
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "store_status", length = 20, nullable = false)
+    private StoreStatus storeStatus = StoreStatus.ACTIVE;
+
+    // ── SEO ──────────────────────────────────────────────────────────────────
+
+    @Column(name = "meta_title", length = 255)
+    private String metaTitle;
+
+    @Column(name = "meta_description", columnDefinition = "TEXT")
+    private String metaDescription;
+
+    /** Comma-separated keyword list */
+    @Column(name = "keywords", columnDefinition = "TEXT")
+    private String keywords;
 
 }

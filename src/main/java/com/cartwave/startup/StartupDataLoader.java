@@ -8,6 +8,7 @@ import com.cartwave.user.entity.UserStatus;
 import com.cartwave.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,6 +26,12 @@ public class StartupDataLoader implements ApplicationRunner {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
+    @Value("${cartwave.superadmin.email:superadmin@cartwave.local}")
+    private String superAdminEmail;
+
+    @Value("${cartwave.superadmin.password:Password123!}")
+    private String superAdminPassword;
+
     @Override
     public void run(ApplicationArguments args) {
         seedPlans();
@@ -32,10 +39,14 @@ public class StartupDataLoader implements ApplicationRunner {
     }
 
     private void seedPlans() {
-        createIfMissing("FREE", "Free tier with basic features", 20, 1, false, false, BigDecimal.ZERO);
-        createIfMissing("STARTER", "Starter plan", 100, 3, true, false, BigDecimal.valueOf(19));
-        createIfMissing("PRO", "Professional plan", 1000, 10, true, true, BigDecimal.valueOf(99));
-        createIfMissing("ENTERPRISE", "Enterprise plan - unlimited products & staff", 0, 0, true, true, BigDecimal.valueOf(499));
+        // Naira pricing as per spec
+        createIfMissing("STARTER",    "Starter (free)",                   5,   1, false, false, BigDecimal.ZERO);
+        createIfMissing("BASIC",      "Basic plan — up to 10 products",   10,  3, true,  false, BigDecimal.valueOf(5000));
+        createIfMissing("GROWTH",     "Growth plan — up to 20 products",  20,  5, true,  false, BigDecimal.valueOf(15000));
+        createIfMissing("PRO",        "Pro plan — up to 100 products",    100, 10, true, true,  BigDecimal.valueOf(30000));
+        createIfMissing("ENTERPRISE", "Enterprise — unlimited products",  0,   0, true,  true,  BigDecimal.ZERO);
+        // Keep legacy FREE plan for backward compat
+        createIfMissing("FREE",       "Legacy free tier",                 20,  1, false, false, BigDecimal.ZERO);
     }
 
     private void createIfMissing(String name, String desc, int productLimit, int staffLimit, boolean payments, boolean customDomain, BigDecimal price) {
@@ -59,17 +70,17 @@ public class StartupDataLoader implements ApplicationRunner {
     }
 
     private void seedSuperAdmin() {
-        if (userRepository.findByEmail("superadmin@cartwave.local").isPresent()) {
+        if (userRepository.findByEmail(superAdminEmail).isPresent()) {
             return;
         }
         User user = new User();
-        user.setEmail("superadmin@cartwave.local");
-        user.setPassword(passwordEncoder.encode("Password123!"));
+        user.setEmail(superAdminEmail);
+        user.setPassword(passwordEncoder.encode(superAdminPassword));
         user.setRole(UserRole.SUPER_ADMIN);
         user.setStatus(UserStatus.ACTIVE);
         user.setFirstName("System");
         user.setLastName("Admin");
         userRepository.save(user);
-        log.info("Seeded default super admin: superadmin@cartwave.local / Password123!");
+        log.info("Seeded default super admin: {}", superAdminEmail);
     }
 }
