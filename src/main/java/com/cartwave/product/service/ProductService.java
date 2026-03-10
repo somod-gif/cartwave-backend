@@ -16,6 +16,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -207,5 +212,25 @@ public class ProductService {
         dto.setSeoTitle(product.getSeoTitle());
         dto.setSeoDescription(product.getSeoDescription());
         return dto;
+    }
+
+    // ── Search / Filter ───────────────────────────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public Page<ProductDTO> searchProducts(
+            UUID storeId,
+            String q,
+            String category,
+            BigDecimal minPrice,
+            BigDecimal maxPrice,
+            boolean inStockOnly,
+            boolean publishedOnly,
+            int page,
+            int size) {
+        // If no storeId provided, resolve from tenant context (authenticated endpoints)
+        UUID resolvedStoreId = storeId != null ? storeId : TenantContext.getTenantId();
+        Pageable pageable = PageRequest.of(page, Math.min(size, 100));
+        return productRepository.search(resolvedStoreId, q, category, minPrice, maxPrice, inStockOnly, publishedOnly, pageable)
+                .map(this::toDto);
     }
 }

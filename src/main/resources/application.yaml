@@ -57,6 +57,7 @@ springdoc:
 app:
   jwt-secret: ${JWT_SECRET:dev-secret-dev-secret-dev-secret-dev-secret}
   jwt-expiration-milliseconds: ${JWT_ACCESS_EXPIRATION_MS:900000}
+  frontend-url: ${FRONTEND_URL:http://localhost:3000}
 
 jwt:
   secret: ${JWT_SECRET:dev-secret-dev-secret-dev-secret-dev-secret}

@@ -5,6 +5,8 @@ import com.cartwave.payment.dto.PaymentInitiateRequest;
 import com.cartwave.payment.dto.PaymentResponse;
 import com.cartwave.payment.dto.PaymentWebhookRequest;
 import com.cartwave.payment.dto.PaymentConfirmRequest;
+import com.cartwave.payment.dto.RefundRequest;
+import com.cartwave.payment.dto.RefundResponse;
 import com.cartwave.payment.service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -39,4 +41,13 @@ public class PaymentController {
     public ResponseEntity<ApiResponse<PaymentResponse>> webhook(@Valid @RequestBody PaymentWebhookRequest request) {
         return ResponseEntity.ok(ApiResponse.success("Payment webhook processed successfully", paymentService.webhook(request)));
     }
+
+    // ── Refund ────────────────────────────────────────────────────────────────
+
+    @PostMapping("/refund")
+    @PreAuthorize("hasAnyRole('BUSINESS_OWNER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<RefundResponse>> refund(@Valid @RequestBody RefundRequest request) {
+        return ResponseEntity.ok(ApiResponse.success("Refund processed successfully", paymentService.refund(request)));
+    }
 }
+

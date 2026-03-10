@@ -55,4 +55,17 @@ public class User extends BaseEntity {
     @Column
     private Long lastLoginAt;
 
+    // ── Password reset ─────────────────────────────────────────────────────────
+
+    @Column(length = 64)
+    private String passwordResetToken;
+
+    @Column
+    private Long passwordResetExpiresAt;
+
+    // ── Email verification ─────────────────────────────────────────────────────
+
+    @Column(length = 64)
+    private String emailVerificationToken;
+
 }
