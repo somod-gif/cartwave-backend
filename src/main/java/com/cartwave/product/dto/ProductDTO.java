@@ -3,6 +3,7 @@ package com.cartwave.product.dto;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.UUID;
 
 @Data
@@ -21,4 +22,13 @@ public class ProductDTO {
     private String images;
     private String category;
     private String attributes;
+    private Instant createdAt;
+    private Instant updatedAt;
+
+    // ── V2 fields ─────────────────────────────────────────────────────────────
+    /** Comma-separated tags */
+    private String tags;
+    private Boolean isPublished;
+    private String seoTitle;
+    private String seoDescription;
 }

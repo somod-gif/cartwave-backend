@@ -7,7 +7,12 @@ import com.cartwave.security.model.CurrentUserPrincipal;
 import com.cartwave.security.service.CurrentUserService;
 import com.cartwave.store.dto.StoreCreateRequest;
 import com.cartwave.store.dto.StoreDTO;
+import com.cartwave.store.dto.StoreBrandingRequest;
+import com.cartwave.store.dto.StoreDomainRequest;
+import com.cartwave.store.dto.StoreSeoRequest;
 import com.cartwave.store.dto.StoreUpdateRequest;
+import com.cartwave.store.entity.StoreStatus;
+import com.cartwave.store.entity.StoreTemplate;
 import com.cartwave.store.entity.Store;
 import com.cartwave.store.repository.StoreRepository;
 import com.cartwave.subscription.entity.Subscription;
@@ -85,6 +90,8 @@ public class StoreService {
                 .businessRegistrationNumber(request.getBusinessRegistrationNumber())
                 .businessPhoneNumber(request.getBusinessPhoneNumber())
                 .businessEmail(request.getBusinessEmail())
+                .subdomain(request.getSlug() + ".cartwave.store")
+                .storeStatus(StoreStatus.ACTIVE)
                 .build();
 
         Store savedStore = storeRepository.save(store);
@@ -242,6 +249,62 @@ public class StoreService {
                 .ownerId(store.getOwnerId())
                 .createdAt(store.getCreatedAt())
                 .updatedAt(store.getUpdatedAt())
+                // V2 fields
+                .template(store.getTemplate() == null ? null : store.getTemplate().name())
+                .brandColor(store.getBrandColor())
+                .customDomainName(store.getCustomDomainName())
+                .subdomain(store.getSubdomain())
+                .storeStatus(store.getStoreStatus() == null ? null : store.getStoreStatus().name())
+                .metaTitle(store.getMetaTitle())
+                .metaDescription(store.getMetaDescription())
+                .keywords(store.getKeywords())
                 .build();
+    }
+
+    // ── V2 branding / domain / SEO ───────────────────────────────────────────
+
+    public StoreDTO updateBranding(UUID storeId, StoreBrandingRequest request) {
+        Store store = findAccessibleStore(storeId);
+        if (request.getLogoUrl() != null)   store.setLogoUrl(request.getLogoUrl());
+        if (request.getBannerUrl() != null) store.setBannerUrl(request.getBannerUrl());
+        if (request.getBrandColor() != null) store.setBrandColor(request.getBrandColor());
+        if (request.getTemplate() != null) {
+            store.setTemplate(StoreTemplate.valueOf(request.getTemplate().toUpperCase()));
+        }
+        return toDto(storeRepository.save(store));
+    }
+
+    public StoreDTO updateDomain(UUID storeId, StoreDomainRequest request) {
+        Store store = findAccessibleStore(storeId);
+        boolean allowed = subscriptionService.isFeatureEnabled(storeId, "custom_domain");
+        if (!allowed) {
+            throw new BusinessException("CUSTOM_DOMAIN_NOT_ALLOWED", "Your current plan does not allow custom domains.");
+        }
+        store.setCustomDomainName(request.getCustomDomain());
+        return toDto(storeRepository.save(store));
+    }
+
+    public StoreDTO updateSeo(UUID storeId, StoreSeoRequest request) {
+        Store store = findAccessibleStore(storeId);
+        if (request.getMetaTitle() != null)       store.setMetaTitle(request.getMetaTitle());
+        if (request.getMetaDescription() != null) store.setMetaDescription(request.getMetaDescription());
+        if (request.getKeywords() != null)         store.setKeywords(request.getKeywords());
+        return toDto(storeRepository.save(store));
+    }
+
+    @Transactional(readOnly = true)
+    public StoreDTO getPublicStoreById(UUID storeId) {
+        Store store = storeRepository.findById(storeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Store", "id", storeId));
+        if (store.getStoreStatus() == StoreStatus.SUSPENDED || Boolean.FALSE.equals(store.getIsActive())) {
+            throw new ResourceNotFoundException("Store", "id", storeId);
+        }
+        return toDto(store);
+    }
+
+    /** Super-admin: return every active store regardless of tenant/auth context. */
+    @Transactional(readOnly = true)
+    public List<StoreDTO> getAllStores() {
+        return storeRepository.findAllActive().stream().map(this::toDto).toList();
     }
 }

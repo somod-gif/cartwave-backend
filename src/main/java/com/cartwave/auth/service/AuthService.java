@@ -1,12 +1,16 @@
 package com.cartwave.auth.service;
 
+import com.cartwave.auth.dto.ForgotPasswordRequest;
 import com.cartwave.auth.dto.JwtAuthResponse;
 import com.cartwave.auth.dto.LoginRequest;
 import com.cartwave.auth.dto.RefreshTokenRequest;
 import com.cartwave.auth.dto.RegisterRequest;
+import com.cartwave.auth.dto.ResetPasswordRequest;
 import com.cartwave.auth.dto.UserDTO;
+import com.cartwave.auth.dto.VerifyEmailRequest;
 import com.cartwave.customer.entity.Customer;
 import com.cartwave.customer.repository.CustomerRepository;
+import com.cartwave.email.service.EmailQueueService;
 import com.cartwave.exception.BusinessException;
 import com.cartwave.exception.UnauthorizedException;
 import com.cartwave.security.service.CustomUserDetailsService;
@@ -17,12 +21,16 @@ import com.cartwave.user.entity.User;
 import com.cartwave.user.entity.UserRole;
 import com.cartwave.user.entity.UserStatus;
 import com.cartwave.user.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 
@@ -37,6 +45,13 @@ public class AuthService {
     private final CustomUserDetailsService customUserDetailsService;
     private final StoreRepository storeRepository;
     private final CustomerRepository customerRepository;
+    private final EmailQueueService emailQueueService;
+
+    @Value("${app.frontend-url:http://localhost:3000}")
+    private String frontendUrl;
+
+    private static final long PASSWORD_RESET_TTL_MS = 15 * 60 * 1000L; // 15 minutes
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     public AuthService(AuthenticationManager authenticationManager,
                        UserRepository userRepository,
@@ -45,7 +60,8 @@ public class AuthService {
                        LoginAttemptService loginAttemptService,
                        CustomUserDetailsService customUserDetailsService,
                        StoreRepository storeRepository,
-                       CustomerRepository customerRepository) {
+                       CustomerRepository customerRepository,
+                       EmailQueueService emailQueueService) {
         this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -54,6 +70,7 @@ public class AuthService {
         this.customUserDetailsService = customUserDetailsService;
         this.storeRepository = storeRepository;
         this.customerRepository = customerRepository;
+        this.emailQueueService = emailQueueService;
     }
 
     public JwtAuthResponse login(LoginRequest loginRequest) {
@@ -103,6 +120,7 @@ public class AuthService {
                 .build();
     }
 
+    @Transactional
     public UserDTO register(RegisterRequest registerRequest) {
         UserRole role = parsePublicRole(registerRequest.getRole());
 
@@ -123,12 +141,22 @@ public class AuthService {
         user.setRole(role);
         user.setStatus(UserStatus.ACTIVE);
         user.setDeleted(false);
+
+        // Generate email verification token for new accounts (except admin-created ones)
+        String verificationToken = generateSecureToken();
+        user.setEmailVerificationToken(verificationToken);
         User saved = userRepository.save(user);
 
         if (role == UserRole.CUSTOMER) {
             Store store = getStore(registerRequest.getStoreId());
             createCustomerProfileIfMissing(saved, store.getId(), registerRequest.getPhoneNumber());
         }
+
+        // Send verification email asynchronously (best-effort)
+        String verifyLink = frontendUrl + "/verify-email?token=" + verificationToken;
+        try {
+            emailQueueService.enqueueEmailVerification(saved.getEmail(), saved.getFirstName(), verifyLink);
+        } catch (Exception ignored) {}
 
         return UserDTO.builder()
                 .id(saved.getId())
@@ -140,6 +168,79 @@ public class AuthService {
                 .status(saved.getStatus().name())
                 .emailVerified(saved.getEmailVerified())
                 .build();
+    }
+
+    // ── Forgot Password ───────────────────────────────────────────────────────
+
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest request) {
+        // Always return 200 to prevent email enumeration
+        userRepository.findByEmail(request.getEmail()).ifPresent(user -> {
+            String token = generateSecureToken();
+            user.setPasswordResetToken(token);
+            user.setPasswordResetExpiresAt(Instant.now().toEpochMilli() + PASSWORD_RESET_TTL_MS);
+            userRepository.save(user);
+
+            String resetLink = frontendUrl + "/reset-password?token=" + token;
+            try {
+                emailQueueService.enqueuePasswordReset(user.getEmail(), resetLink);
+            } catch (Exception ignored) {}
+        });
+    }
+
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        User user = userRepository.findByPasswordResetToken(request.getToken())
+                .orElseThrow(() -> new BusinessException("INVALID_TOKEN", "Invalid or expired password reset token."));
+
+        long now = Instant.now().toEpochMilli();
+        if (user.getPasswordResetExpiresAt() == null || user.getPasswordResetExpiresAt() < now) {
+            throw new BusinessException("TOKEN_EXPIRED", "Password reset token has expired. Please request a new one.");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setPasswordResetToken(null);
+        user.setPasswordResetExpiresAt(null);
+        userRepository.save(user);
+    }
+
+    // ── Email Verification ────────────────────────────────────────────────────
+
+    @Transactional
+    public void verifyEmail(VerifyEmailRequest request) {
+        User user = userRepository.findByEmailVerificationToken(request.getToken())
+                .orElseThrow(() -> new BusinessException("INVALID_TOKEN", "Invalid email verification token."));
+
+        user.setEmailVerified(true);
+        user.setEmailVerificationToken(null);
+        userRepository.save(user);
+    }
+
+    @Transactional
+    public void resendVerificationEmail(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new BusinessException("USER_NOT_FOUND", "No account found with that email."));
+
+        if (Boolean.TRUE.equals(user.getEmailVerified())) {
+            throw new BusinessException("ALREADY_VERIFIED", "Email is already verified.");
+        }
+
+        String token = generateSecureToken();
+        user.setEmailVerificationToken(token);
+        userRepository.save(user);
+
+        String verifyLink = frontendUrl + "/verify-email?token=" + token;
+        try {
+            emailQueueService.enqueueEmailVerification(user.getEmail(), user.getFirstName(), verifyLink);
+        } catch (Exception ignored) {}
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    private String generateSecureToken() {
+        byte[] bytes = new byte[32];
+        SECURE_RANDOM.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
     private UserRole parsePublicRole(String rawRole) {
@@ -209,3 +310,4 @@ public class AuthService {
                 .orElseThrow(() -> new BusinessException("STORE_NOT_FOUND", "Store not found for customer registration."));
     }
 }
+

@@ -10,4 +10,6 @@ import java.util.UUID;
 
 public interface EmailQueueRepository extends JpaRepository<EmailQueue, UUID> {
     List<EmailQueue> findByStatusOrderByCreatedAtAsc(EmailStatus status, Pageable pageable);
+
+    long countByStatus(EmailStatus status);
 }

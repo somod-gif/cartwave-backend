@@ -24,7 +24,6 @@ public class StoreDTO {
     private Boolean isActive;
     private String logoUrl;
     private String websiteUrl;
-    // allow toggling custom domain from UI
     private Boolean customDomain;
     private String bannerUrl;
     private String businessAddress;
@@ -34,5 +33,15 @@ public class StoreDTO {
     private UUID ownerId;
     private Instant createdAt;
     private Instant updatedAt;
+
+    // ── V2 Store Builder fields ───────────────────────────────────────────────
+    private String template;
+    private String brandColor;
+    private String customDomainName;
+    private String subdomain;
+    private String storeStatus;
+    private String metaTitle;
+    private String metaDescription;
+    private String keywords;
 
 }

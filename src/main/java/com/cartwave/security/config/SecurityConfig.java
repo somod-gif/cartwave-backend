@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -17,6 +18,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
 
     private final CustomUserDetailsService customUserDetailsService;
@@ -54,10 +56,13 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                     .requestMatchers(
+                            // Auth + registration
                             "/api/v1/auth/**",
                             "/api/v1/customers/register",
+                            // Public platform health
                             "/api/v1/health",
                             "/api/v1/public/**",
+                            // Swagger / OpenAPI
                             "/swagger-ui.html",
                             "/swagger-ui/**",
                             "/swagger-ui/index.html",
@@ -65,9 +70,19 @@ public class SecurityConfig {
                             "/api-docs",
                             "/api-docs/**",
                             "/actuator/health",
-                            "/actuator/health/**"
+                            "/actuator/health/**",
+                            // Public store pages (V2 Store Builder)
+                            "/api/v1/stores/*/public",
+                            "/api/v1/stores/*/products",
+                            // Public subscription plan listing
+                            "/api/v1/subscriptions/plans",
+                            // Public coupon validation at checkout
+                            "/api/v1/marketing/coupons/validate"
                     ).permitAll()
-                        .anyRequest().authenticated()
+                    // Admin area — requires ADMIN or SUPER_ADMIN role
+                    // Fine-grained access is also enforced via @PreAuthorize on controllers
+                    .requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
+                    .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

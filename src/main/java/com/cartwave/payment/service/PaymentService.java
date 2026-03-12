@@ -1,5 +1,10 @@
 package com.cartwave.payment.service;
 
+import java.time.Instant;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.cartwave.billing.entity.BillingStatus;
 import com.cartwave.billing.entity.BillingTransaction;
 import com.cartwave.billing.repository.BillingTransactionRepository;
@@ -13,14 +18,13 @@ import com.cartwave.payment.dto.PaymentConfirmRequest;
 import com.cartwave.payment.dto.PaymentInitiateRequest;
 import com.cartwave.payment.dto.PaymentResponse;
 import com.cartwave.payment.dto.PaymentWebhookRequest;
+import com.cartwave.payment.dto.RefundRequest;
+import com.cartwave.payment.dto.RefundResponse;
 import com.cartwave.payment.entity.Payment;
 import com.cartwave.payment.repository.PaymentRepository;
 import com.cartwave.tenant.TenantContext;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -113,5 +117,50 @@ public class PaymentService {
         confirmRequest.setStatus(request.getStatus());
         confirmRequest.setProviderReference(request.getFailureReason());
         return confirm(confirmRequest);
+    }
+
+    // ── Refund ────────────────────────────────────────────────────────────────
+
+    public RefundResponse refund(RefundRequest request) {
+        var storeId = TenantContext.getTenantId();
+
+        BillingTransaction transaction = billingTransactionRepository
+                .findByTransactionIdAndStoreId(request.getTransactionId(), storeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Transaction", "transactionId", request.getTransactionId()));
+
+        // Only COMPLETED or HOLD transactions can be refunded
+        if (transaction.getStatus() != BillingStatus.COMPLETED && transaction.getStatus() != BillingStatus.HOLD) {
+            throw new BusinessException("REFUND_NOT_ELIGIBLE",
+                    "Only COMPLETED or HOLD transactions can be refunded. Current status: " + transaction.getStatus());
+        }
+
+        // Determine refund amount (partial or full)
+        var refundAmount = request.getAmount() != null ? request.getAmount() : transaction.getAmount();
+        if (refundAmount.compareTo(transaction.getAmount()) > 0) {
+            throw new BusinessException("REFUND_EXCEEDS_AMOUNT",
+                    "Refund amount cannot exceed the original transaction amount of " + transaction.getAmount());
+        }
+
+        // Mark transaction as refunded
+        transaction.setStatus(BillingStatus.REFUNDED);
+        transaction.setFailureReason(request.getReason());
+        billingTransactionRepository.save(transaction);
+
+        // Update order payment status
+        if (transaction.getOrderId() != null) {
+            orderRepository.findById(transaction.getOrderId()).ifPresent(order -> {
+                order.setPaymentStatus(PaymentStatus.REFUNDED);
+                orderRepository.save(order);
+            });
+        }
+
+        return RefundResponse.builder()
+                .transactionId(transaction.getTransactionId())
+                .orderId(transaction.getOrderId())
+                .refundedAmount(refundAmount)
+                .status("REFUNDED")
+                .reason(request.getReason())
+                .refundedAt(Instant.now())
+                .build();
     }
 }

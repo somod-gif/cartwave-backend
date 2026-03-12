@@ -48,4 +48,18 @@ public class EscrowTransaction extends BaseEntity {
 
     @Column(length = 64)
     private String transactionRef;
+
+    // ── V2 Escrow fields ──────────────────────────────────────────────────────
+
+    /** Platform fee as a percentage e.g. 2.50 = 2.5% */
+    @Column(name = "platform_fee_percent", precision = 5, scale = 2)
+    private BigDecimal platformFeePercent;
+
+    /** Amount after platform fee deduction */
+    @Column(name = "seller_amount", precision = 19, scale = 2)
+    private BigDecimal sellerAmount;
+
+    /** Actual timestamp when escrow was released */
+    @Column(name = "released_at")
+    private Long releasedAt;
 }

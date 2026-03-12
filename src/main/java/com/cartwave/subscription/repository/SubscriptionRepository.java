@@ -25,4 +25,7 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, UUID
     @Query("SELECT s FROM Subscription s WHERE s.status = :status AND s.deleted = false")
     List<Subscription> findByStatus(@Param("status") com.cartwave.subscription.entity.SubscriptionStatus status);
 
+    @Query("SELECT COUNT(s) FROM Subscription s WHERE s.status = :status AND s.deleted = false")
+    long countByStatus(@Param("status") com.cartwave.subscription.entity.SubscriptionStatus status);
+
 }

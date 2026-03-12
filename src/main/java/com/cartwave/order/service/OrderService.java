@@ -149,6 +149,28 @@ public class OrderService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public List<OrderDTO> getOrdersByStoreId(UUID storeId) {
+        CurrentUserPrincipal principal = currentUserService.requireCurrentUser();
+        if (principal.getRole() == UserRole.CUSTOMER) {
+            throw new BusinessException("ORDER_ACCESS_DENIED", "Customers cannot view all store orders.");
+        }
+        return orderRepository.findAllByStoreId(storeId).stream().map(this::toDto).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrderDTO> getOrdersByCustomerId(UUID customerId) {
+        CurrentUserPrincipal principal = currentUserService.requireCurrentUser();
+        // Customer can only view their own orders; staff/admin can view any
+        if (principal.getRole() == UserRole.CUSTOMER) {
+            Customer customer = customerService.requireCurrentCustomer();
+            if (!customer.getId().equals(customerId) && !customer.getUserId().equals(customerId)) {
+                throw new BusinessException("ORDER_ACCESS_DENIED", "Customers can only access their own orders.");
+            }
+        }
+        return orderRepository.findByCustomerId(customerId).stream().map(this::toDto).toList();
+    }
+
     private OrderDTO toDto(Order order) {
         return OrderDTO.builder()
                 .id(order.getId())

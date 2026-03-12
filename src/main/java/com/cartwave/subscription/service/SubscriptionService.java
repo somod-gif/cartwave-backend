@@ -34,6 +34,15 @@ public class SubscriptionService {
     private final SubscriptionPlanRepository subscriptionPlanRepository;
     private final StoreRepository storeRepository;
 
+    public SubscriptionDTO cancelSubscription() {
+        UUID storeId = TenantContext.getTenantId();
+        Subscription subscription = subscriptionRepository.findByStoreId(storeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Subscription", "storeId", storeId));
+        subscription.setStatus(SubscriptionStatus.CANCELLED);
+        subscription.setAutoRenewal(false);
+        return toDto(subscriptionRepository.save(subscription));
+    }
+
     @Transactional(readOnly = true)
     public SubscriptionDTO getSubscriptionForStore() {
         UUID storeId = TenantContext.getTenantId();

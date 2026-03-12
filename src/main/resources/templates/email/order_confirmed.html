@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><title>Order Confirmed</title></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 0;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);">
+      <!-- Header -->
+      <tr><td style="background:#4f46e5;padding:32px 40px;text-align:center;">
+        <h1 style="color:#fff;margin:0;font-size:24px;font-weight:700;">CartWave</h1>
+      </td></tr>
+      <!-- Body -->
+      <tr><td style="padding:40px;">
+        <h2 style="margin:0 0 16px;color:#111827;font-size:20px;">Order Confirmed 🎉</h2>
+        <p style="color:#6b7280;margin:0 0 24px;line-height:1.6;">
+          Thank you for your purchase! Your order has been received and is being processed.
+        </p>
+        <div style="background:#f9fafb;border-radius:8px;padding:20px;margin-bottom:24px;">
+          <p style="margin:0;color:#374151;font-size:14px;"><strong>Order ID:</strong></p>
+          <p style="margin:4px 0 0;color:#4f46e5;font-size:16px;font-weight:600;" th:text="${orderId}"></p>
+        </div>
+        <p style="color:#6b7280;font-size:14px;line-height:1.6;">
+          We'll send you another email once your order ships. If you have any questions, reply to this email.
+        </p>
+      </td></tr>
+      <!-- Footer -->
+      <tr><td style="background:#f9fafb;padding:24px 40px;text-align:center;">
+        <p style="margin:0;color:#9ca3af;font-size:12px;">© 2026 CartWave. All rights reserved.</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>

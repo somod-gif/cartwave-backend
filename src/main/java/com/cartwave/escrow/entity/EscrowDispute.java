@@ -37,6 +37,14 @@ public class EscrowDispute extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String reason;
 
+    /** Evidence text submitted by the buyer */
+    @Column(name = "evidence", columnDefinition = "TEXT")
+    private String evidence;
+
+    /** Admin resolution notes */
+    @Column(name = "admin_resolution_notes", columnDefinition = "TEXT")
+    private String adminResolutionNotes;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     private EscrowDisputeStatus status;

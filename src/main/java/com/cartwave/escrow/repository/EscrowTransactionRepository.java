@@ -23,4 +23,10 @@ public interface EscrowTransactionRepository extends JpaRepository<EscrowTransac
     long countByStatusAndDeletedFalse(EscrowStatus status);
 
     long countByStoreIdAndStatusAndDeletedFalse(UUID storeId, EscrowStatus status);
+
+    @Query("SELECT e FROM EscrowTransaction e WHERE e.storeId = :storeId AND e.deleted = false ORDER BY e.createdAt DESC")
+    List<EscrowTransaction> findAllByStoreId(@Param("storeId") UUID storeId);
+
+    @Query("SELECT e FROM EscrowTransaction e WHERE e.status = :status AND e.deleted = false")
+    List<EscrowTransaction> findAllByStatus(@Param("status") EscrowStatus status);
 }

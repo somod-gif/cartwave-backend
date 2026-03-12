@@ -12,6 +12,7 @@ import com.cartwave.order.repository.OrderRepository;
 import com.cartwave.product.repository.ProductRepository;
 import com.cartwave.staff.repository.StaffRepository;
 import com.cartwave.store.repository.StoreRepository;
+import com.cartwave.subscription.repository.SubscriptionRepository;
 import com.cartwave.tenant.TenantContext;
 import com.cartwave.user.entity.UserRole;
 import com.cartwave.user.repository.UserRepository;
@@ -36,6 +37,7 @@ public class DashboardService {
     private final UserRepository userRepository;
     private final CustomerRepository customerRepository;
     private final EscrowTransactionRepository escrowTransactionRepository;
+    private final SubscriptionRepository subscriptionRepository;
 
     public AdminDashboardResponse getAdminDashboard() {
         var storeId = TenantContext.getTenantId();
@@ -52,11 +54,31 @@ public class DashboardService {
 
     public DashboardMetricsResponse getMetrics() {
         var storeId = TenantContext.getTenantId();
+
+        // Subscription info
+        String planName = null;
+        String planStatus = null;
+        try {
+            var subOpt = subscriptionRepository.findByStoreId(storeId);
+            if (subOpt.isPresent()) {
+                planName = subOpt.get().getPlanName();
+                planStatus = subOpt.get().getStatus() == null ? null : subOpt.get().getStatus().name();
+            }
+        } catch (Exception ignored) {}
+
         return DashboardMetricsResponse.builder()
+                // existing
                 .totalOrders(orderRepository.countByStoreIdAndDeletedFalse(storeId))
                 .revenue(defaultAmount(orderRepository.sumRevenueForStore(storeId)))
                 .activeCustomers(customerRepository.countByStoreIdAndDeletedFalse(storeId))
                 .pendingEscrow(escrowTransactionRepository.countByStoreIdAndStatusAndDeletedFalse(storeId, EscrowStatus.HELD))
+                // V2 enrichment
+                .pendingOrders(orderRepository.countByStatusAndStoreIdAndDeletedFalse(OrderStatus.PENDING, storeId))
+                .deliveredOrders(orderRepository.countByStatusAndStoreIdAndDeletedFalse(OrderStatus.DELIVERED, storeId))
+                .productCount(productRepository.countByStoreIdAndDeletedFalse(storeId))
+                .lowStockProducts(productRepository.countByStoreIdAndStockLessThanEqualAndDeletedFalse(storeId, 5L))
+                .subscriptionPlan(planName)
+                .subscriptionStatus(planStatus)
                 .build();
     }
 
