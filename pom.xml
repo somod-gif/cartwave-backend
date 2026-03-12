@@ -22,6 +22,7 @@
 		<lombok.version>1.18.38</lombok.version>
 		<testcontainers.version>1.20.6</testcontainers.version>
 		<aws.sdk.version>2.26.21</aws.sdk.version>
+		<bucket4j.version>8.10.1</bucket4j.version>
 	</properties>
 
 	<dependencies>
@@ -127,6 +128,24 @@
 			<artifactId>spring-boot-starter-cache</artifactId>
 		</dependency>
 
+		<!-- Redis — caching + session activity + rate-limit counters -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-redis</artifactId>
+		</dependency>
+
+		<!-- Bucket4j — API rate limiting (Redis-backed) -->
+		<dependency>
+			<groupId>com.bucket4j</groupId>
+			<artifactId>bucket4j-core</artifactId>
+			<version>${bucket4j.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.bucket4j</groupId>
+			<artifactId>bucket4j-redis</artifactId>
+			<version>${bucket4j.version}</version>
+		</dependency>
+
 		<!-- DevTools -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -229,12 +248,16 @@
 				<artifactId>flyway-maven-plugin</artifactId>
 				<version>${flyway.version}</version>
 				<configuration>
-					<url>${env.DB_URL}</url>
+					<!-- Accepts DATABASE_URL (primary) or DB_URL (fallback) -->
+					<url>${env.DATABASE_URL}</url>
 					<user>${env.DB_USERNAME}</user>
 					<password>${env.DB_PASSWORD}</password>
 					<schemas>
 						<schema>public</schema>
 					</schemas>
+					<locations>
+						<location>filesystem:src/main/resources/db/migration</location>
+					</locations>
 				</configuration>
 			</plugin>
 		</plugins>

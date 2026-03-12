@@ -197,30 +197,56 @@ This document lists every feature delivered in the CartWave backend MVP, organiz
 
 | Category | Endpoints |
 |----------|:---------:|
-| Auth | 3 |
-| Stores | 5 |
-| Public Catalog | 2 |
-| Products | 5 |
+| Auth | 8 |
+| Stores | 10 |
+| Public Catalog | 3 |
+| Products | 16 |
 | Cart | 5 |
 | Checkout | 1 |
-| Orders | 5 |
-| Payments | 3 |
+| Orders | 9 |
+| Payments | 5 |
 | Customers | 3 |
 | Staff | 3 |
-| Subscriptions | 5 |
+| Subscriptions | 7 |
 | Billing | 1 |
+| Marketing (Coupons) | 4 |
+| Wishlist | 3 |
 | Dashboard | 1 |
-| Admin Dashboard | 2 |
-| Super Admin | 2 |
+| Admin | 10 |
+| Super Admin | 14 |
 | Email | 1 |
 | Health | 1 |
-| **Total** | **38** |
+| **Total** | **112** |
 
 ---
 
-## Database: 17 Tables
+## V3 Enterprise Features
 
-`users`, `stores`, `products`, `customers`, `staff`, `orders`, `order_items`, `carts`, `cart_items`, `payments`, `billing_transactions`, `escrow_transactions`, `escrow_disputes`, `subscriptions`, `subscription_plans`, `fraud_flags`, `kpi_snapshots`, `email_queue`
+| Feature | Status | Details |
+|---------|:------:|---------|
+| Password reset flow | Done | `POST /auth/forgot-password` sends reset email → `POST /auth/reset-password` with token. Token stored as `password_reset_token` with TTL (`password_reset_expires_at`). |
+| Email verification | Done | `POST /auth/verify-email` with token. `POST /auth/resend-verification` to resend. Token stored as `email_verification_token`. |
+| Refresh token rotation | Done | SHA-256 hashed tokens in `refresh_tokens` table. Old token revoked on refresh. `POST /auth/logout` revokes immediately. |
+| Product variants | Done | `ProductVariant` entity — name, SKU (unique), price, stock, imageUrl. Full CRUD under `/products/{id}/variants`. |
+| Product reviews | Done | `Review` entity — rating (1–5), comment, verified-purchase flag. Public read, customer write, admin delete. Unique per customer+product. |
+| Product search | Done | `GET /products/search` with filters: `q`, `category`, `minPrice`, `maxPrice`, `inStock`, `publishedOnly`. Public search via `/public/stores/{storeId}/products/search`. |
+| Wishlist | Done | `Wishlist` entity — per-customer saved items. `GET/POST/DELETE /wishlist/{productId}`. Requires CUSTOMER role. |
+| Order tracking timeline | Done | `OrderTracking` entity — records each status change with note and updatedBy. `GET /orders/{orderId}/tracking`. |
+| Paystack integration | Done | `PaystackService` — `initializeTransaction()` → Paystack API, returns `authorization_url`. Webhook at `/payments/paystack/webhook` with HMAC-SHA512 signature verification. |
+| Payment refunds | Done | `POST /payments/refund` — process refund. Requires BUSINESS_OWNER/ADMIN/SUPER_ADMIN. |
+| Rate limiting | Done | Bucket4j per-IP: login 10/min, forgot-password 5/10min, default 200/min. |
+| OWASP security headers | Done | HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy. Path-aware CSP relaxation for Swagger UI. |
+| Session timeout | Done | Redis-based 30-min inactivity tracking. Graceful fallback when Redis unavailable. |
+| Redis caching | Done | `@Cacheable` on public store, products, plans, dashboard. `ConcurrentMapCache` fallback if no Redis. |
+| Super Admin module | Done | 14 endpoints — platform dashboard, system stats, health, revenue, user management, admin CRUD, store listing, plan management. |
+| Email templates | Done | 15 Thymeleaf templates: welcome, email_verification, password_reset, order_confirmed/shipped/delivered, payment_successful/failed, subscription_created/renewed/expiring, store_created, escrow_released, dispute_opened/resolved. |
+| Pagination | Done | All list endpoints paginated with `?page=0&size=20`, returns Spring `Page<T>`. |
+
+---
+
+## Database: 24 Tables
+
+`users`, `stores`, `products`, `product_variants`, `customers`, `staff`, `orders`, `order_items`, `order_tracking`, `carts`, `cart_items`, `payments`, `billing_transactions`, `escrow_transactions`, `escrow_disputes`, `subscriptions`, `subscription_plans`, `coupons`, `reviews`, `wishlists`, `refresh_tokens`, `fraud_flags`, `kpi_snapshots`, `email_queue`
 
 ---
 

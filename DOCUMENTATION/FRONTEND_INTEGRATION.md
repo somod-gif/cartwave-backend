@@ -1,6 +1,6 @@
 # CartWave Backend — Frontend Integration Guide
 
-**Version:** V2  
+**Version:** V3  
 **Base URL:** `http://localhost:8080` (dev) | `https://your-domain.com` (prod)  
 **Swagger UI:** `/swagger-ui/index.html`  
 **API Docs (JSON):** `/api-docs`
@@ -415,16 +415,29 @@ Based on the roles and features, here is how the frontend should be structured:
 
 | Item | Status |
 |---|---|
-| HTML email templates | Queuing works, plain text only — HTML needs design |
-| Password reset / forgot password flow | Not implemented |
-| Email verification flow | Field exists (`emailVerified`) but no verification email send |
 | Real-time notifications (WebSocket) | Not implemented |
-| Product search / filtering | No search endpoint — frontend must filter client-side |
-| Refund processing | No dedicated refund endpoint — handled manually via escrow dispute |
 | Customer address management | `addressesJson` field exists on Customer entity but no dedicated API |
-| Customer wishlist | `wishlistJson` field exists but no dedicated API |
-| Webhook signature verification | Webhook endpoint exists but no HMAC signature check |
 | OAuth / Social login | Not implemented |
+
+## What HAS Been Built (V3)
+
+| Feature | Endpoint |
+|---|---|
+| Password reset flow | `POST /auth/forgot-password` + `POST /auth/reset-password` |
+| Email verification | `POST /auth/verify-email` + `POST /auth/resend-verification` |
+| Refresh token rotation | `POST /auth/refresh` (rotates), `POST /auth/logout` (revokes) |
+| HTML email templates | 15 Thymeleaf templates (welcome, order, payment, subscription, escrow, dispute) |
+| Product search/filtering | `GET /products/search` + `GET /public/stores/{storeId}/products/search` |
+| Product variants | Full CRUD under `/products/{id}/variants` |
+| Product reviews | `GET/POST/DELETE /products/{id}/reviews` |
+| Wishlist API | `GET/POST/DELETE /wishlist/{productId}` (CUSTOMER role) |
+| Order tracking timeline | `GET /orders/{orderId}/tracking` |
+| Payment refunds | `POST /payments/refund` |
+| Paystack integration | `POST /payments/paystack/webhook` (HMAC-SHA512 verified) |
+| Webhook signature verification | HMAC-SHA512 on Paystack webhook |
+| Rate limiting | Bucket4j per-IP (login: 10/min, forgot-password: 5/10min) |
+| Redis caching | Store, products, plans, dashboard cached with fallback |
+| Super Admin module | 14 endpoints for platform management |
 
 ---
 

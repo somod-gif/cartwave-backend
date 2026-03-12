@@ -22,6 +22,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.cartwave.common.dto.ApiResponse;
 import com.cartwave.product.dto.ProductDTO;
+import com.cartwave.product.dto.ProductVariantDTO;
+import com.cartwave.product.dto.ReviewDTO;
 import com.cartwave.product.service.ProductService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -48,8 +50,10 @@ public class ProductController {
     @Operation(summary = "List all products in the current store")
     @GetMapping
     @PreAuthorize("hasAnyRole('BUSINESS_OWNER', 'ADMIN', 'STAFF')")
-    public ResponseEntity<ApiResponse<List<ProductDTO>>> getAllProducts() {
-        return ResponseEntity.ok(ApiResponse.success("Products retrieved successfully", productService.getAllProducts()));
+    public ResponseEntity<ApiResponse<Page<ProductDTO>>> getAllProducts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(ApiResponse.success("Products retrieved successfully", productService.getAllProducts(page, size)));
     }
 
     @Operation(summary = "Get a product by ID")
@@ -117,9 +121,78 @@ public class ProductController {
             @RequestParam(defaultValue = "false") boolean publishedOnly,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        // storeId resolved by TenantContext inside service
         Page<ProductDTO> results = productService.searchProducts(
                 null, q, category, minPrice, maxPrice, inStock, publishedOnly, page, size);
         return ResponseEntity.ok(ApiResponse.success("Search results", results));
+    }
+
+    // ── Variants ──────────────────────────────────────────────────────────────
+
+    @Operation(summary = "List variants for a product")
+    @GetMapping("/{id}/variants")
+    @PreAuthorize("hasAnyRole('BUSINESS_OWNER', 'ADMIN', 'STAFF')")
+    public ResponseEntity<ApiResponse<List<ProductVariantDTO>>> getVariants(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.success("Variants retrieved", productService.getVariants(id)));
+    }
+
+    @Operation(summary = "Add a variant to a product")
+    @PostMapping("/{id}/variants")
+    @PreAuthorize("hasAnyRole('BUSINESS_OWNER', 'ADMIN', 'STAFF')")
+    public ResponseEntity<ApiResponse<ProductVariantDTO>> addVariant(
+            @PathVariable UUID id,
+            @Valid @RequestBody ProductVariantDTO dto) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Variant added", productService.addVariant(id, dto)));
+    }
+
+    @Operation(summary = "Update a product variant")
+    @PutMapping("/{id}/variants/{variantId}")
+    @PreAuthorize("hasAnyRole('BUSINESS_OWNER', 'ADMIN', 'STAFF')")
+    public ResponseEntity<ApiResponse<ProductVariantDTO>> updateVariant(
+            @PathVariable UUID id,
+            @PathVariable UUID variantId,
+            @Valid @RequestBody ProductVariantDTO dto) {
+        return ResponseEntity.ok(ApiResponse.success("Variant updated", productService.updateVariant(id, variantId, dto)));
+    }
+
+    @Operation(summary = "Delete a product variant")
+    @DeleteMapping("/{id}/variants/{variantId}")
+    @PreAuthorize("hasAnyRole('BUSINESS_OWNER', 'ADMIN', 'STAFF')")
+    public ResponseEntity<ApiResponse<Void>> deleteVariant(
+            @PathVariable UUID id,
+            @PathVariable UUID variantId) {
+        productService.deleteVariant(id, variantId);
+        return ResponseEntity.ok(ApiResponse.success("Variant deleted", null));
+    }
+
+    // ── Reviews ───────────────────────────────────────────────────────────────
+
+    @Operation(summary = "List reviews for a product (paginated)")
+    @GetMapping("/{id}/reviews")
+    public ResponseEntity<ApiResponse<Page<ReviewDTO>>> getReviews(
+            @PathVariable UUID id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ResponseEntity.ok(ApiResponse.success("Reviews retrieved", productService.getReviews(id, page, size)));
+    }
+
+    @Operation(summary = "Submit a review (customers only, verified-purchase flag auto-set)")
+    @PostMapping("/{id}/reviews")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<ApiResponse<ReviewDTO>> addReview(
+            @PathVariable UUID id,
+            @Valid @RequestBody ReviewDTO dto) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Review submitted", productService.addReview(id, dto)));
+    }
+
+    @Operation(summary = "Delete a review (admins / business owner)")
+    @DeleteMapping("/{id}/reviews/{reviewId}")
+    @PreAuthorize("hasAnyRole('BUSINESS_OWNER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deleteReview(
+            @PathVariable UUID id,
+            @PathVariable UUID reviewId) {
+        productService.deleteReview(id, reviewId);
+        return ResponseEntity.ok(ApiResponse.success("Review deleted", null));
     }
 }

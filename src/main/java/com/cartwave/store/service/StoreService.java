@@ -1,19 +1,29 @@
 package com.cartwave.store.service;
 
-import com.cartwave.common.dto.ApiResponse;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.cartwave.exception.BusinessException;
 import com.cartwave.exception.ResourceNotFoundException;
 import com.cartwave.security.model.CurrentUserPrincipal;
 import com.cartwave.security.service.CurrentUserService;
+import com.cartwave.store.dto.StoreBrandingRequest;
 import com.cartwave.store.dto.StoreCreateRequest;
 import com.cartwave.store.dto.StoreDTO;
-import com.cartwave.store.dto.StoreBrandingRequest;
 import com.cartwave.store.dto.StoreDomainRequest;
 import com.cartwave.store.dto.StoreSeoRequest;
 import com.cartwave.store.dto.StoreUpdateRequest;
+import com.cartwave.store.entity.Store;
 import com.cartwave.store.entity.StoreStatus;
 import com.cartwave.store.entity.StoreTemplate;
-import com.cartwave.store.entity.Store;
 import com.cartwave.store.repository.StoreRepository;
 import com.cartwave.subscription.entity.Subscription;
 import com.cartwave.subscription.entity.SubscriptionPlan;
@@ -23,16 +33,9 @@ import com.cartwave.subscription.repository.SubscriptionRepository;
 import com.cartwave.subscription.service.SubscriptionService;
 import com.cartwave.tenant.TenantContext;
 import com.cartwave.user.entity.UserRole;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.UUID;
 
 @Slf4j
 @Service
@@ -105,6 +108,7 @@ public class StoreService {
         return toDto(store);
     }
 
+    @CacheEvict(value = "store-public", key = "#storeId")
     public StoreDTO updateStore(UUID storeId, StoreUpdateRequest request) {
         Store store = findAccessibleStore(storeId);
 
@@ -165,6 +169,7 @@ public class StoreService {
         storeRepository.save(store);
     }
 
+    @Cacheable(value = "store-public", key = "'slug:' + #slug")
     @Transactional(readOnly = true)
     public StoreDTO getPublicStoreBySlug(String slug) {
         Store store = storeRepository.findBySlug(slug)
@@ -263,6 +268,7 @@ public class StoreService {
 
     // ── V2 branding / domain / SEO ───────────────────────────────────────────
 
+    @CacheEvict(value = "store-public", key = "#storeId")
     public StoreDTO updateBranding(UUID storeId, StoreBrandingRequest request) {
         Store store = findAccessibleStore(storeId);
         if (request.getLogoUrl() != null)   store.setLogoUrl(request.getLogoUrl());
@@ -274,6 +280,7 @@ public class StoreService {
         return toDto(storeRepository.save(store));
     }
 
+    @CacheEvict(value = "store-public", key = "#storeId")
     public StoreDTO updateDomain(UUID storeId, StoreDomainRequest request) {
         Store store = findAccessibleStore(storeId);
         boolean allowed = subscriptionService.isFeatureEnabled(storeId, "custom_domain");
@@ -284,6 +291,7 @@ public class StoreService {
         return toDto(storeRepository.save(store));
     }
 
+    @CacheEvict(value = "store-public", key = "#storeId")
     public StoreDTO updateSeo(UUID storeId, StoreSeoRequest request) {
         Store store = findAccessibleStore(storeId);
         if (request.getMetaTitle() != null)       store.setMetaTitle(request.getMetaTitle());
@@ -292,6 +300,7 @@ public class StoreService {
         return toDto(storeRepository.save(store));
     }
 
+    @Cacheable(value = "store-public", key = "#storeId")
     @Transactional(readOnly = true)
     public StoreDTO getPublicStoreById(UUID storeId) {
         Store store = storeRepository.findById(storeId)

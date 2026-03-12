@@ -81,3 +81,70 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [1.0.0] — Initial Release
 
 - Full multi-tenant e-commerce backend with store, product, order, payment, escrow, subscription, customer, staff, cart, checkout, auth, dashboard, fraud detection, and KPI aggregation modules.
+
+---
+
+## [3.0.0] — Enterprise Feature Release (March 2026)
+
+### Added
+
+#### Security & Auth
+- **DB-backed refresh token rotation** — `RefreshToken` entity with SHA-256 hashed token storage, automatic revocation on rotation
+- **Logout endpoint** — `POST /api/v1/auth/logout` revokes the current refresh token
+- **Session timeout filter** — Redis-based 30-min inactivity tracking; graceful fallback when Redis is unavailable
+- **Rate limiting** — Bucket4j per-IP buckets (login: 10 req/min, forgot-password: 5 req/10min, default: 200 req/min)
+- **OWASP security headers** — HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy on every response
+- **`X-Powered-By: CartWave`** header added to all responses as platform watermark
+- **CORS bean** — configurable via `CORS_ALLOWED_ORIGINS` env var
+
+#### Caching (Redis)
+- `RedisConfig` with ConcurrentMapCache fallback when Redis is unavailable
+- `@Cacheable` on: `getPublicStoreBySlug`, `getPublicStoreById`, `getPublicProducts`, `listPlans`, `getMetrics`
+- `@CacheEvict` on all corresponding mutation methods
+- Cache names: `store-public`, `store-products`, `subscription-plans`, `dashboard-metrics`
+
+#### Paystack Payment Integration
+- `PaystackService` — `initializeTransaction()` (calls Paystack API, returns `authorization_url`) + `verifyWebhookSignature()` (HMAC-SHA512)
+- `PaymentService.initiate()` — detects `PAYSTACK` provider, calls Paystack API, stores reference
+- `POST /api/v1/payments/paystack/webhook` — public endpoint with raw body + `X-Paystack-Signature` header verification
+- `PaymentResponse` extended with `authorizationUrl` field
+
+#### Order Tracking Timeline
+- `OrderTracking` entity — tracks each status change with note and updatedBy
+- `GET /api/v1/orders/{orderId}/tracking` — returns full chronological timeline
+
+#### Product Variants
+- `ProductVariant` entity — name, SKU (unique), price, stockQuantity, imageUrl
+- Full CRUD: `GET/POST /products/{id}/variants`, `PUT/DELETE /products/{id}/variants/{variantId}`
+
+#### Product Reviews
+- `Review` entity — rating (1–5), comment, verified-purchase flag (unique per customer+product)
+- `GET /stores/{slug}/products/{id}/reviews` — public paginated reviews
+- `POST /products/{id}/reviews` — customer only, verified-purchase check
+- `DELETE /products/{id}/reviews/{reviewId}` — admin
+
+#### Wishlist Management
+- `Wishlist` entity — per-customer per-store saved items (unique customer+product)
+- `GET/POST/DELETE /api/v1/wishlist/{productId}` — all require `CUSTOMER` role
+
+#### Email Templates (Thymeleaf)
+- `welcome.html`, `payment_successful.html`, `payment_failed.html`
+- `subscription_created.html`, `subscription_renewed.html`
+- `store_created.html`
+- (Plus existing: `email_verification`, `password_reset`, `order_confirmed`, `order_shipped`, `order_delivered`, `subscription_expiring`, `escrow_released`, `dispute_opened`, `dispute_resolved`)
+
+#### Pagination
+- `GET /api/v1/orders` — paginated (`?page=0&size=20`), returns `Page<OrderDTO>`
+- `GET /api/v1/products` — paginated (`?page=0&size=20`), returns `Page<ProductDTO>`
+- `GET /api/v1/billing/transactions` — paginated (`?page=0&size=20`), returns `Page<BillingTransactionDTO>`
+- All default to `size=20`, sorted by `createdAt DESC`
+
+### Changed
+- `PaymentController.webhook()` endpoint changed to `POST /paystack/webhook` (raw body, public, HMAC-verified)
+- `BillingController.getTransactions()` now returns `Page<BillingTransactionDTO>`
+- `OrderController.listOrders()` now returns `Page<OrderDTO>`
+- `ProductController.getAllProducts()` now returns `Page<ProductDTO>`
+- `SecurityConfig` updated with new filter chain ordering: `rateLimitFilter → securityHeadersFilter → jwtAuthFilter → sessionTimeoutFilter`
+
+---
+

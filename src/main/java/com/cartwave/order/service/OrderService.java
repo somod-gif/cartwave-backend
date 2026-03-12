@@ -8,10 +8,13 @@ import com.cartwave.escrow.service.EscrowService;
 import com.cartwave.exception.BusinessException;
 import com.cartwave.exception.ResourceNotFoundException;
 import com.cartwave.order.dto.OrderDTO;
+import com.cartwave.order.dto.OrderTrackingDTO;
 import com.cartwave.order.entity.Order;
 import com.cartwave.order.entity.OrderStatus;
+import com.cartwave.order.entity.OrderTracking;
 import com.cartwave.order.entity.PaymentStatus;
 import com.cartwave.order.repository.OrderRepository;
+import com.cartwave.order.repository.OrderTrackingRepository;
 import com.cartwave.security.model.CurrentUserPrincipal;
 import com.cartwave.security.service.CurrentUserService;
 import com.cartwave.tenant.TenantContext;
@@ -25,6 +28,10 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +39,7 @@ import java.util.UUID;
 public class OrderService {
 
     private final OrderRepository orderRepository;
+    private final OrderTrackingRepository orderTrackingRepository;
     private final CurrentUserService currentUserService;
     private final CustomerService customerService;
     private final BillingTransactionRepository billingTransactionRepository;
@@ -47,17 +55,15 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
-    public List<OrderDTO> getOrdersByStore() {
+    public Page<OrderDTO> getOrdersByStore(int page, int size) {
         UUID storeId = TenantContext.getTenantId();
         CurrentUserPrincipal principal = currentUserService.requireCurrentUser();
+        PageRequest pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         if (principal.getRole() == UserRole.CUSTOMER) {
             Customer customer = customerService.requireCurrentCustomer();
-            return orderRepository.findByCustomerIdAndStoreId(customer.getId(), storeId).stream().map(this::toDto).toList();
+            return orderRepository.findByCustomerIdAndStoreId(customer.getId(), storeId, pageable).map(this::toDto);
         }
-        return orderRepository.findByStoreId(storeId, org.springframework.data.domain.Pageable.unpaged())
-                .stream()
-                .map(this::toDto)
-                .toList();
+        return orderRepository.findByStoreId(storeId, pageable).map(this::toDto);
     }
 
     public OrderDTO createOrder(OrderDTO orderDTO) {
@@ -110,6 +116,7 @@ public class OrderService {
 
         OrderStatus nextStatus = OrderStatus.valueOf(status.trim().toUpperCase(Locale.ROOT));
         order.setStatus(nextStatus);
+        appendTrackingEntry(orderId, nextStatus);
         if (nextStatus == OrderStatus.DELIVERED) {
             order.setCompletedAt(Instant.now().toEpochMilli());
             if (order.getPaymentStatus() == PaymentStatus.COMPLETED) {
@@ -199,5 +206,32 @@ public class OrderService {
 
     private BigDecimal defaultAmount(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
+    }
+
+    private void appendTrackingEntry(UUID orderId, OrderStatus status) {
+        CurrentUserPrincipal principal = currentUserService.requireCurrentUser();
+        OrderTracking entry = OrderTracking.builder()
+                .orderId(orderId)
+                .status(status)
+                .updatedBy(principal.getUserId())
+                .build();
+        orderTrackingRepository.save(entry);
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrderTrackingDTO> getTrackingTimeline(UUID orderId) {
+        UUID storeId = TenantContext.getTenantId();
+        orderRepository.findByIdAndStoreId(orderId, storeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+        return orderTrackingRepository.findByOrderIdOrderByCreatedAtAsc(orderId).stream()
+                .map(t -> OrderTrackingDTO.builder()
+                        .id(t.getId())
+                        .orderId(t.getOrderId())
+                        .status(t.getStatus().name())
+                        .note(t.getNote())
+                        .updatedBy(t.getUpdatedBy())
+                        .timestamp(t.getCreatedAt())
+                        .build())
+                .toList();
     }
 }

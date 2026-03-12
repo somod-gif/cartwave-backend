@@ -1,5 +1,22 @@
 package com.cartwave.auth.service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.time.Instant;
+import java.util.Base64;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.cartwave.auth.dto.ForgotPasswordRequest;
 import com.cartwave.auth.dto.JwtAuthResponse;
 import com.cartwave.auth.dto.LoginRequest;
@@ -8,6 +25,8 @@ import com.cartwave.auth.dto.RegisterRequest;
 import com.cartwave.auth.dto.ResetPasswordRequest;
 import com.cartwave.auth.dto.UserDTO;
 import com.cartwave.auth.dto.VerifyEmailRequest;
+import com.cartwave.auth.entity.RefreshToken;
+import com.cartwave.auth.repository.RefreshTokenRepository;
 import com.cartwave.customer.entity.Customer;
 import com.cartwave.customer.repository.CustomerRepository;
 import com.cartwave.email.service.EmailQueueService;
@@ -21,18 +40,6 @@ import com.cartwave.user.entity.User;
 import com.cartwave.user.entity.UserRole;
 import com.cartwave.user.entity.UserStatus;
 import com.cartwave.user.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.security.SecureRandom;
-import java.time.Instant;
-import java.util.Base64;
-import java.util.List;
-import java.util.UUID;
 
 @Service
 public class AuthService {
@@ -46,9 +53,13 @@ public class AuthService {
     private final StoreRepository storeRepository;
     private final CustomerRepository customerRepository;
     private final EmailQueueService emailQueueService;
+    private final RefreshTokenRepository refreshTokenRepository;
 
     @Value("${app.frontend-url:http://localhost:3000}")
     private String frontendUrl;
+
+    @Value("${jwt.refresh-token-expiration:604800000}")
+    private long refreshTokenExpirationMs;
 
     private static final long PASSWORD_RESET_TTL_MS = 15 * 60 * 1000L; // 15 minutes
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
@@ -61,7 +72,8 @@ public class AuthService {
                        CustomUserDetailsService customUserDetailsService,
                        StoreRepository storeRepository,
                        CustomerRepository customerRepository,
-                       EmailQueueService emailQueueService) {
+                       EmailQueueService emailQueueService,
+                       RefreshTokenRepository refreshTokenRepository) {
         this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -71,6 +83,7 @@ public class AuthService {
         this.storeRepository = storeRepository;
         this.customerRepository = customerRepository;
         this.emailQueueService = emailQueueService;
+        this.refreshTokenRepository = refreshTokenRepository;
     }
 
     public JwtAuthResponse login(LoginRequest loginRequest) {
@@ -87,9 +100,11 @@ public class AuthService {
             user.setLastLoginAt(Instant.now().toEpochMilli());
             userRepository.save(user);
             loginAttemptService.onSuccess(loginRequest.getEmail());
+            String rawRefreshToken = generateSecureToken();
+            persistRefreshToken(user.getId(), rawRefreshToken);
             return JwtAuthResponse.builder()
                     .accessToken(tokenProvider.generateToken(user, storeId))
-                    .refreshToken(tokenProvider.generateRefreshToken(user, storeId))
+                    .refreshToken(rawRefreshToken)
                     .build();
         } catch (Exception ex) {
             loginAttemptService.onFailure(loginRequest.getEmail());
@@ -100,24 +115,67 @@ public class AuthService {
         }
     }
 
+    @Transactional
     public JwtAuthResponse refreshToken(RefreshTokenRequest request) {
-        if (!"REFRESH".equals(tokenProvider.extractTokenType(request.getRefreshToken()))) {
-            throw new UnauthorizedException("Invalid refresh token");
+        String tokenHash = hashToken(request.getRefreshToken());
+        RefreshToken storedToken = refreshTokenRepository.findByTokenHashAndRevokedFalseAndDeletedFalse(tokenHash)
+                .orElseThrow(() -> new UnauthorizedException("Invalid or expired refresh token."));
+
+        if (storedToken.getExpiresAt().isBefore(Instant.now())) {
+            storedToken.setRevoked(true);
+            refreshTokenRepository.save(storedToken);
+            throw new UnauthorizedException("Refresh token has expired. Please log in again.");
         }
-        String username = tokenProvider.extractUsername(request.getRefreshToken());
-        UUID storeId = tokenProvider.extractStoreId(request.getRefreshToken());
-        User user = userRepository.findByEmail(username)
-                .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
-        var userDetails = customUserDetailsService.loadUserByUsernameAndStoreId(username, storeId);
-        if (!tokenProvider.validateToken(request.getRefreshToken(), userDetails)) {
-            throw new UnauthorizedException("Invalid refresh token");
-        }
-        resolveStoreContext(user, storeId, false);
+
+        // Revoke existing token (rotation)
+        storedToken.setRevoked(true);
+        refreshTokenRepository.save(storedToken);
+
+        User user = userRepository.findById(storedToken.getUserId())
+                .orElseThrow(() -> new UnauthorizedException("User not found."));
+        UUID storeId = resolveStoreContext(user, null, false);
         ensureCustomerProfileIfNeeded(user, storeId);
+
+        String newRawRefreshToken = generateSecureToken();
+        persistRefreshToken(user.getId(), newRawRefreshToken);
+
         return JwtAuthResponse.builder()
                 .accessToken(tokenProvider.generateToken(user, storeId))
-                .refreshToken(tokenProvider.generateRefreshToken(user, storeId))
+                .refreshToken(newRawRefreshToken)
                 .build();
+    }
+
+    @Transactional
+    public void logout(RefreshTokenRequest request) {
+        if (request.getRefreshToken() == null || request.getRefreshToken().isBlank()) {
+            return;
+        }
+        String tokenHash = hashToken(request.getRefreshToken());
+        refreshTokenRepository.findByTokenHashAndRevokedFalseAndDeletedFalse(tokenHash)
+                .ifPresent(token -> {
+                    token.setRevoked(true);
+                    refreshTokenRepository.save(token);
+                });
+    }
+
+    private void persistRefreshToken(UUID userId, String rawToken) {
+        RefreshToken record = RefreshToken.builder()
+                .userId(userId)
+                .tokenHash(hashToken(rawToken))
+                .expiresAt(Instant.now().plusMillis(refreshTokenExpirationMs))
+                .revoked(false)
+                .build();
+        refreshTokenRepository.save(record);
+    }
+
+    private String hashToken(String rawToken) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(rawToken.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 not available", e);
+        }
     }
 
     @Transactional

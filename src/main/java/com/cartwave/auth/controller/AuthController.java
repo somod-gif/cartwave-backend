@@ -76,5 +76,11 @@ public class AuthController {
         authService.resendVerificationEmail(email);
         return ResponseEntity.ok(ApiResponse.success("Verification email sent.", null));
     }
+
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(@Valid @RequestBody RefreshTokenRequest request) {
+        authService.logout(request);
+        return ResponseEntity.ok(ApiResponse.success("Logged out successfully.", null));
+    }
 }
 

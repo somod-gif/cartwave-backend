@@ -28,6 +28,9 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     @Query("SELECT o FROM Order o WHERE o.customerId = :customerId AND o.storeId = :storeId AND o.deleted = false ORDER BY o.createdAt DESC")
     List<Order> findByCustomerIdAndStoreId(@Param("customerId") UUID customerId, @Param("storeId") UUID storeId);
 
+    @Query("SELECT o FROM Order o WHERE o.customerId = :customerId AND o.storeId = :storeId AND o.deleted = false")
+    Page<Order> findByCustomerIdAndStoreId(@Param("customerId") UUID customerId, @Param("storeId") UUID storeId, Pageable pageable);
+
     long countByStoreIdAndDeletedFalse(UUID storeId);
 
     long countByStatusAndStoreIdAndDeletedFalse(com.cartwave.order.entity.OrderStatus status, UUID storeId);

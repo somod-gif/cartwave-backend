@@ -3,6 +3,7 @@ package com.cartwave.order.controller;
 import com.cartwave.common.dto.ApiResponse;
 import com.cartwave.order.dto.OrderDTO;
 import com.cartwave.order.dto.OrderStatusUpdateRequest;
+import com.cartwave.order.dto.OrderTrackingDTO;
 import com.cartwave.order.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
 
 @Tag(name = "Orders", description = "Order management endpoints")
 @RestController
@@ -34,8 +36,10 @@ public class OrderController {
     @Operation(summary = "List orders for the current tenant/store")
     @GetMapping
     @PreAuthorize("hasAnyRole('CUSTOMER', 'BUSINESS_OWNER', 'ADMIN', 'STAFF', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<List<OrderDTO>>> listOrders() {
-        return ResponseEntity.ok(ApiResponse.success("Orders retrieved successfully", orderService.getOrdersByStore()));
+    public ResponseEntity<ApiResponse<Page<OrderDTO>>> listOrders(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(ApiResponse.success("Orders retrieved successfully", orderService.getOrdersByStore(page, size)));
     }
 
     @Operation(summary = "Create an order")
@@ -88,5 +92,12 @@ public class OrderController {
     @PreAuthorize("hasAnyRole('CUSTOMER', 'BUSINESS_OWNER', 'ADMIN', 'STAFF', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<List<OrderDTO>>> getOrdersByCustomer(@PathVariable UUID customerId) {
         return ResponseEntity.ok(ApiResponse.success("Orders retrieved successfully", orderService.getOrdersByCustomerId(customerId)));
+    }
+
+    @Operation(summary = "Get tracking timeline for an order")
+    @GetMapping("/{orderId}/tracking")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'BUSINESS_OWNER', 'ADMIN', 'STAFF', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<List<OrderTrackingDTO>>> getTracking(@PathVariable UUID orderId) {
+        return ResponseEntity.ok(ApiResponse.success("Order tracking retrieved", orderService.getTrackingTimeline(orderId)));
     }
 }

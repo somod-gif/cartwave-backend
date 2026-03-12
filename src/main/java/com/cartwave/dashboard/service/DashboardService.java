@@ -18,6 +18,7 @@ import com.cartwave.user.entity.UserRole;
 import com.cartwave.user.repository.UserRepository;
 import com.cartwave.customer.repository.CustomerRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,6 +53,7 @@ public class DashboardService {
                 .build();
     }
 
+    @Cacheable(value = "dashboard-metrics", key = "T(com.cartwave.tenant.TenantContext).getTenantId()")
     public DashboardMetricsResponse getMetrics() {
         var storeId = TenantContext.getTenantId();
 

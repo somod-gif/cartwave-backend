@@ -22,19 +22,23 @@ import com.cartwave.payment.dto.RefundRequest;
 import com.cartwave.payment.dto.RefundResponse;
 import com.cartwave.payment.entity.Payment;
 import com.cartwave.payment.repository.PaymentRepository;
+import com.cartwave.payment.service.PaystackService.PaystackTransactionData;
 import com.cartwave.tenant.TenantContext;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class PaymentService {
 
     private final BillingTransactionRepository billingTransactionRepository;
     private final OrderRepository orderRepository;
     private final PaymentRepository paymentRepository;
     private final EscrowService escrowService;
+    private final PaystackService paystackService;
 
     public PaymentResponse initiate(PaymentInitiateRequest request) {
         var storeId = TenantContext.getTenantId();
@@ -53,11 +57,25 @@ public class PaymentService {
         billingTransactionRepository.save(transaction);
         orderRepository.save(order);
 
+        // ── Paystack: initialize transaction and return authorization URL ────
+        String authorizationUrl = null;
+        if ("PAYSTACK".equalsIgnoreCase(request.getPaymentProvider())) {
+            String currency = transaction.getCurrency() != null ? transaction.getCurrency() : "NGN";
+            String email = order.getCustomerEmail() != null ? order.getCustomerEmail() : "customer@cartwave.io";
+            PaystackService.PaystackInitResponse paystackResponse =
+                    paystackService.initializeTransaction(email, transaction.getAmount(),
+                            transaction.getTransactionId(), currency);
+            authorizationUrl = paystackResponse.getAuthorizationUrl();
+            transaction.setTransactionDetails("paystack-ref:" + paystackResponse.getReference());
+            billingTransactionRepository.save(transaction);
+        }
+
         return PaymentResponse.builder()
                 .transactionId(transaction.getTransactionId())
                 .status(transaction.getStatus().name())
                 .paymentProvider(transaction.getPaymentProvider())
                 .paymentMethod(transaction.getPaymentMethod())
+                .authorizationUrl(authorizationUrl)
                 .build();
     }
 
@@ -116,6 +134,47 @@ public class PaymentService {
         confirmRequest.setTransactionId(request.getTransactionId());
         confirmRequest.setStatus(request.getStatus());
         confirmRequest.setProviderReference(request.getFailureReason());
+        return confirm(confirmRequest);
+    }
+
+    /**
+     * Processes an incoming Paystack webhook after the controller has already
+     * verified the HMAC-SHA512 signature. Parses the event data, looks up the
+     * billing transaction by Paystack reference, and delegates to confirm().
+     *
+     * @param paystackReference Paystack transaction reference from webhook payload
+     * @param paystackStatus    status string from Paystack (e.g. "success", "failed")
+     * @param providerReference Paystack transaction ID / gateway reference
+     */
+    public PaymentResponse processPaystackWebhook(String paystackReference,
+                                                   String paystackStatus,
+                                                   String providerReference) {
+        // Map Paystack status to internal status
+        boolean success = "success".equalsIgnoreCase(paystackStatus);
+
+        // BillingTransaction stores the Paystack reference in transactionDetails
+        // as "paystack-ref:{reference}". Locate by this detail or fall back to
+        // exact transactionId match.
+        BillingTransaction transaction = billingTransactionRepository
+                .findByTransactionId(paystackReference)
+                .or(() -> billingTransactionRepository
+                        .findByTransactionDetails("paystack-ref:" + paystackReference))
+                .orElse(null);
+
+        if (transaction == null) {
+            log.warn("Paystack webhook: no transaction found for reference={}", paystackReference);
+            // Return a neutral response so Paystack does not retry unnecessarily
+            return PaymentResponse.builder()
+                    .transactionId(paystackReference)
+                    .status("IGNORED")
+                    .paymentProvider("PAYSTACK")
+                    .build();
+        }
+
+        PaymentConfirmRequest confirmRequest = new PaymentConfirmRequest();
+        confirmRequest.setTransactionId(transaction.getTransactionId());
+        confirmRequest.setStatus(success ? "SUCCESS" : "FAILED");
+        confirmRequest.setProviderReference(providerReference);
         return confirm(confirmRequest);
     }
 

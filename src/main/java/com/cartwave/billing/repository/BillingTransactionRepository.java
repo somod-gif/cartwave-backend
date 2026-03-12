@@ -25,6 +25,9 @@ public interface BillingTransactionRepository extends JpaRepository<BillingTrans
     @Query("SELECT b FROM BillingTransaction b WHERE b.transactionId = :transactionId AND b.deleted = false")
     Optional<BillingTransaction> findByTransactionId(@Param("transactionId") String transactionId);
 
+    @Query("SELECT b FROM BillingTransaction b WHERE b.transactionDetails = :details AND b.deleted = false")
+    Optional<BillingTransaction> findByTransactionDetails(@Param("details") String details);
+
     @Query("SELECT b FROM BillingTransaction b WHERE b.orderId = :orderId AND b.storeId = :storeId AND b.deleted = false ORDER BY b.createdAt DESC")
     Optional<BillingTransaction> findFirstByOrderIdAndStoreId(@Param("orderId") UUID orderId, @Param("storeId") UUID storeId);
 

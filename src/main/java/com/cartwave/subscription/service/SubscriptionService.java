@@ -15,6 +15,8 @@ import com.cartwave.subscription.repository.SubscriptionRepository;
 import com.cartwave.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,11 +53,13 @@ public class SubscriptionService {
         return toDto(subscription);
     }
 
+    @Cacheable("subscription-plans")
     @Transactional(readOnly = true)
     public List<SubscriptionPlanDTO> listPlans() {
         return subscriptionPlanRepository.findByActiveTrueAndDeletedFalse().stream().map(this::toPlanDto).toList();
     }
 
+    @CacheEvict(value = "subscription-plans", allEntries = true)
     public SubscriptionDTO changePlan(SubscriptionChangeRequest request) {
         UUID storeId = TenantContext.getTenantId();
         SubscriptionPlan plan = subscriptionPlanRepository.findByName(request.getPlanName())

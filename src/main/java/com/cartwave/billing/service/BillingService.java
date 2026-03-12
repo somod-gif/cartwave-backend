@@ -12,6 +12,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 @Slf4j
 @Service
@@ -23,7 +26,7 @@ public class BillingService {
     private final SubscriptionService subscriptionService;
 
     @Transactional(readOnly = true)
-    public List<BillingTransactionDTO> getTransactionsForStore() {
+    public Page<BillingTransactionDTO> getTransactionsForStore(int page, int size) {
         log.info("Fetching billing transactions for store");
         var storeId = TenantContext.getTenantId();
 
@@ -31,10 +34,9 @@ public class BillingService {
             throw new BusinessException("PAYMENTS_NOT_ALLOWED", "Current subscription plan does not allow billing/payments features.");
         }
 
-        return billingTransactionRepository.findByStoreId(storeId, org.springframework.data.domain.Pageable.unpaged())
-                .stream()
-                .map(this::toDto)
-                .toList();
+        return billingTransactionRepository.findByStoreId(storeId,
+                PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")))
+                .map(this::toDto);
     }
 
     public BillingTransactionDTO toDto(BillingTransaction transaction) {

@@ -14,4 +14,14 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
 
     @Query("SELECT oi FROM OrderItem oi WHERE oi.orderId = :orderId AND oi.deleted = false")
     List<OrderItem> findByOrderId(@Param("orderId") UUID orderId);
+
+    @Query("""
+        SELECT COUNT(oi) > 0 FROM OrderItem oi
+        JOIN Order o ON o.id = oi.orderId
+        WHERE oi.productId = :productId
+          AND o.customerId = :customerId
+          AND oi.deleted = false
+          AND o.deleted = false
+        """)
+    boolean existsPurchaseByCustomer(@Param("productId") UUID productId, @Param("customerId") UUID customerId);
 }

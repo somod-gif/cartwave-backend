@@ -1,34 +1,48 @@
--- CartWave V1 init — single authoritative migration
--- Reset is handled by FlywayConfig.java (drops tables via SQL before migrate)
+-- =============================================================================
+-- CartWave V1 — Consolidated authoritative schema
+-- This file is the single source of truth for the CartWave database schema.
+-- It merges all migrations (V1, V2, V3, enterprise upgrades) into one definitive file.
+-- Generated: 2026-03-11
+-- IMPORTANT: Requires a clean database. Run on empty schema only.
+-- =============================================================================
 
 -- ===========================================================================
 -- USERS
+-- Merged columns: V1 base + V3 password-reset + email-verification tokens
 -- ===========================================================================
-CREATE TABLE IF NOT EXISTS users (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email           VARCHAR(255) NOT NULL UNIQUE,
-    password_hash   VARCHAR(255) NOT NULL,
-    first_name      VARCHAR(255),
-    last_name       VARCHAR(255),
-    phone_number    VARCHAR(255),
-    role            VARCHAR(50) NOT NULL,
-    status          VARCHAR(50) NOT NULL,
-    email_verified  BOOLEAN NOT NULL DEFAULT FALSE,
-    profile_picture_url TEXT,
-    bio             TEXT,
-    last_login_at   BIGINT,
-    created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    deleted         BOOLEAN NOT NULL DEFAULT FALSE
+CREATE TABLE users (
+    id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email                       VARCHAR(255) NOT NULL UNIQUE,
+    password_hash               VARCHAR(255) NOT NULL,
+    first_name                  VARCHAR(255),
+    last_name                   VARCHAR(255),
+    phone_number                VARCHAR(255),
+    role                        VARCHAR(50)  NOT NULL,
+    status                      VARCHAR(50)  NOT NULL,
+    email_verified              BOOLEAN      NOT NULL DEFAULT FALSE,
+    profile_picture_url         TEXT,
+    bio                         TEXT,
+    last_login_at               BIGINT,
+    password_reset_token        VARCHAR(64),
+    password_reset_expires_at   BIGINT,
+    email_verification_token    VARCHAR(64),
+    created_at                  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at                  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    deleted                     BOOLEAN NOT NULL DEFAULT FALSE
 );
-CREATE INDEX IF NOT EXISTS idx_users_email   ON users(email);
-CREATE INDEX IF NOT EXISTS idx_users_status  ON users(status);
-CREATE INDEX IF NOT EXISTS idx_users_deleted ON users(deleted);
+CREATE INDEX idx_users_email                    ON users(email);
+CREATE INDEX idx_users_status                   ON users(status);
+CREATE INDEX idx_users_deleted                  ON users(deleted);
+CREATE INDEX idx_users_password_reset_token     ON users(password_reset_token)     WHERE password_reset_token IS NOT NULL;
+CREATE INDEX idx_users_email_verification_token ON users(email_verification_token) WHERE email_verification_token IS NOT NULL;
 
 -- ===========================================================================
 -- STORES
+-- Merged columns: V1 base + V2 store-builder fields (template, brand_color,
+-- custom_domain_name, subdomain, store_status, meta_title, meta_description,
+-- keywords) + UNIQUE constraint on subdomain
 -- ===========================================================================
-CREATE TABLE IF NOT EXISTS stores (
+CREATE TABLE stores (
     id                              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name                            VARCHAR(255) NOT NULL,
     slug                            VARCHAR(100) NOT NULL UNIQUE,
@@ -45,19 +59,28 @@ CREATE TABLE IF NOT EXISTS stores (
     business_registration_number    VARCHAR(50),
     business_phone_number           VARCHAR(20),
     business_email                  VARCHAR(255),
+    template                        VARCHAR(20),
+    brand_color                     VARCHAR(20),
+    custom_domain_name              VARCHAR(255),
+    subdomain                       VARCHAR(255) UNIQUE,
+    store_status                    VARCHAR(20)  DEFAULT 'ACTIVE',
+    meta_title                      VARCHAR(255),
+    meta_description                TEXT,
+    keywords                        TEXT,
     created_at                      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     updated_at                      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     deleted                         BOOLEAN NOT NULL DEFAULT FALSE
 );
-CREATE INDEX IF NOT EXISTS idx_stores_slug       ON stores(slug);
-CREATE INDEX IF NOT EXISTS idx_stores_owner_id   ON stores(owner_user_id);
-CREATE INDEX IF NOT EXISTS idx_stores_is_active  ON stores(active);
-CREATE INDEX IF NOT EXISTS idx_stores_deleted    ON stores(deleted);
+CREATE INDEX idx_stores_slug      ON stores(slug);
+CREATE INDEX idx_stores_owner_id  ON stores(owner_user_id);
+CREATE INDEX idx_stores_is_active ON stores(active);
+CREATE INDEX idx_stores_deleted   ON stores(deleted);
 
 -- ===========================================================================
 -- PRODUCTS
+-- Merged columns: V1 base + V2 fields (tags, is_published, seo_title, seo_description)
 -- ===========================================================================
-CREATE TABLE IF NOT EXISTS products (
+CREATE TABLE products (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     store_id            UUID NOT NULL REFERENCES stores(id),
     name                VARCHAR(255) NOT NULL,
@@ -72,18 +95,22 @@ CREATE TABLE IF NOT EXISTS products (
     images              TEXT,
     category            VARCHAR(255),
     attributes          TEXT,
+    tags                TEXT,
+    is_published        BOOLEAN DEFAULT FALSE,
+    seo_title           VARCHAR(255),
+    seo_description     TEXT,
     created_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     updated_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     deleted             BOOLEAN NOT NULL DEFAULT FALSE
 );
-CREATE INDEX IF NOT EXISTS idx_products_store_id ON products(store_id);
-CREATE INDEX IF NOT EXISTS idx_products_status   ON products(status);
-CREATE INDEX IF NOT EXISTS idx_products_deleted  ON products(deleted);
+CREATE INDEX idx_products_store_id ON products(store_id);
+CREATE INDEX idx_products_status   ON products(status);
+CREATE INDEX idx_products_deleted  ON products(deleted);
 
 -- ===========================================================================
 -- CUSTOMERS
 -- ===========================================================================
-CREATE TABLE IF NOT EXISTS customers (
+CREATE TABLE customers (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id         UUID NOT NULL REFERENCES users(id),
     store_id        UUID NOT NULL REFERENCES stores(id),
@@ -94,13 +121,13 @@ CREATE TABLE IF NOT EXISTS customers (
     updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     deleted         BOOLEAN NOT NULL DEFAULT FALSE
 );
-CREATE INDEX IF NOT EXISTS idx_customers_user_store ON customers(user_id, store_id);
-CREATE INDEX IF NOT EXISTS idx_customers_deleted    ON customers(deleted);
+CREATE INDEX idx_customers_user_store ON customers(user_id, store_id);
+CREATE INDEX idx_customers_deleted    ON customers(deleted);
 
 -- ===========================================================================
 -- STAFF
 -- ===========================================================================
-CREATE TABLE IF NOT EXISTS staff (
+CREATE TABLE staff (
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id          UUID NOT NULL REFERENCES users(id),
     store_id         UUID NOT NULL REFERENCES stores(id),
@@ -113,14 +140,14 @@ CREATE TABLE IF NOT EXISTS staff (
     updated_at       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     deleted          BOOLEAN NOT NULL DEFAULT FALSE
 );
-CREATE INDEX IF NOT EXISTS idx_staff_store_id ON staff(store_id);
-CREATE INDEX IF NOT EXISTS idx_staff_user_id  ON staff(user_id);
-CREATE INDEX IF NOT EXISTS idx_staff_deleted  ON staff(deleted);
+CREATE INDEX idx_staff_store_id ON staff(store_id);
+CREATE INDEX idx_staff_user_id  ON staff(user_id);
+CREATE INDEX idx_staff_deleted  ON staff(deleted);
 
 -- ===========================================================================
 -- ORDERS
 -- ===========================================================================
-CREATE TABLE IF NOT EXISTS orders (
+CREATE TABLE orders (
     id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     store_id              UUID NOT NULL REFERENCES stores(id),
     customer_id           UUID NOT NULL REFERENCES customers(id),
@@ -141,15 +168,15 @@ CREATE TABLE IF NOT EXISTS orders (
     updated_at            TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     deleted               BOOLEAN NOT NULL DEFAULT FALSE
 );
-CREATE INDEX IF NOT EXISTS idx_orders_store_id    ON orders(store_id);
-CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON orders(customer_id);
-CREATE INDEX IF NOT EXISTS idx_orders_status      ON orders(status);
-CREATE INDEX IF NOT EXISTS idx_orders_deleted     ON orders(deleted);
+CREATE INDEX idx_orders_store_id    ON orders(store_id);
+CREATE INDEX idx_orders_customer_id ON orders(customer_id);
+CREATE INDEX idx_orders_status      ON orders(status);
+CREATE INDEX idx_orders_deleted     ON orders(deleted);
 
 -- ===========================================================================
--- ORDER_ITEMS  (referenced in spec, not currently an entity — placeholder)
+-- ORDER_ITEMS
 -- ===========================================================================
-CREATE TABLE IF NOT EXISTS order_items (
+CREATE TABLE order_items (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     order_id    UUID NOT NULL REFERENCES orders(id),
     product_id  UUID NOT NULL REFERENCES products(id),
@@ -160,14 +187,14 @@ CREATE TABLE IF NOT EXISTS order_items (
     updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     deleted     BOOLEAN NOT NULL DEFAULT FALSE
 );
-CREATE INDEX IF NOT EXISTS idx_order_items_order_id   ON order_items(order_id);
-CREATE INDEX IF NOT EXISTS idx_order_items_product_id ON order_items(product_id);
-CREATE INDEX IF NOT EXISTS idx_order_items_deleted    ON order_items(deleted);
+CREATE INDEX idx_order_items_order_id   ON order_items(order_id);
+CREATE INDEX idx_order_items_product_id ON order_items(product_id);
+CREATE INDEX idx_order_items_deleted    ON order_items(deleted);
 
 -- ===========================================================================
 -- CARTS
 -- ===========================================================================
-CREATE TABLE IF NOT EXISTS carts (
+CREATE TABLE carts (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     store_id    UUID NOT NULL REFERENCES stores(id),
     customer_id UUID NOT NULL REFERENCES customers(id),
@@ -179,14 +206,14 @@ CREATE TABLE IF NOT EXISTS carts (
     updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     deleted     BOOLEAN NOT NULL DEFAULT FALSE
 );
-CREATE INDEX IF NOT EXISTS idx_carts_store_customer ON carts(store_id, customer_id);
-CREATE INDEX IF NOT EXISTS idx_carts_status         ON carts(status);
-CREATE INDEX IF NOT EXISTS idx_carts_deleted        ON carts(deleted);
+CREATE INDEX idx_carts_store_customer ON carts(store_id, customer_id);
+CREATE INDEX idx_carts_status         ON carts(status);
+CREATE INDEX idx_carts_deleted        ON carts(deleted);
 
 -- ===========================================================================
 -- CART_ITEMS
 -- ===========================================================================
-CREATE TABLE IF NOT EXISTS cart_items (
+CREATE TABLE cart_items (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     cart_id     UUID NOT NULL REFERENCES carts(id),
     product_id  UUID NOT NULL REFERENCES products(id),
@@ -197,14 +224,14 @@ CREATE TABLE IF NOT EXISTS cart_items (
     updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     deleted     BOOLEAN NOT NULL DEFAULT FALSE
 );
-CREATE INDEX IF NOT EXISTS idx_cart_items_cart_id    ON cart_items(cart_id);
-CREATE INDEX IF NOT EXISTS idx_cart_items_product_id ON cart_items(product_id);
-CREATE INDEX IF NOT EXISTS idx_cart_items_deleted    ON cart_items(deleted);
+CREATE INDEX idx_cart_items_cart_id    ON cart_items(cart_id);
+CREATE INDEX idx_cart_items_product_id ON cart_items(product_id);
+CREATE INDEX idx_cart_items_deleted    ON cart_items(deleted);
 
 -- ===========================================================================
 -- SUBSCRIPTION_PLANS
 -- ===========================================================================
-CREATE TABLE IF NOT EXISTS subscription_plans (
+CREATE TABLE subscription_plans (
     id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name                  VARCHAR(100) NOT NULL UNIQUE,
     description           TEXT,
@@ -218,12 +245,12 @@ CREATE TABLE IF NOT EXISTS subscription_plans (
     updated_at            TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     deleted               BOOLEAN NOT NULL DEFAULT FALSE
 );
-CREATE INDEX IF NOT EXISTS idx_subscription_plans_name ON subscription_plans(name);
+CREATE INDEX idx_subscription_plans_name ON subscription_plans(name);
 
 -- ===========================================================================
 -- SUBSCRIPTIONS
 -- ===========================================================================
-CREATE TABLE IF NOT EXISTS subscriptions (
+CREATE TABLE subscriptions (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     store_id      UUID NOT NULL REFERENCES stores(id),
     plan_name     VARCHAR(100) NOT NULL,
@@ -240,14 +267,14 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     updated_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     deleted       BOOLEAN NOT NULL DEFAULT FALSE
 );
-CREATE INDEX IF NOT EXISTS idx_subscriptions_store_id ON subscriptions(store_id);
-CREATE INDEX IF NOT EXISTS idx_subscriptions_status   ON subscriptions(status);
-CREATE INDEX IF NOT EXISTS idx_subscriptions_deleted  ON subscriptions(deleted);
+CREATE INDEX idx_subscriptions_store_id ON subscriptions(store_id);
+CREATE INDEX idx_subscriptions_status   ON subscriptions(status);
+CREATE INDEX idx_subscriptions_deleted  ON subscriptions(deleted);
 
 -- ===========================================================================
 -- BILLING_TRANSACTIONS
 -- ===========================================================================
-CREATE TABLE IF NOT EXISTS billing_transactions (
+CREATE TABLE billing_transactions (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     store_id            UUID NOT NULL REFERENCES stores(id),
     order_id            UUID,
@@ -265,15 +292,15 @@ CREATE TABLE IF NOT EXISTS billing_transactions (
     updated_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     deleted             BOOLEAN NOT NULL DEFAULT FALSE
 );
-CREATE INDEX IF NOT EXISTS idx_billing_store_id  ON billing_transactions(store_id);
-CREATE INDEX IF NOT EXISTS idx_billing_order_id  ON billing_transactions(order_id);
-CREATE INDEX IF NOT EXISTS idx_billing_status    ON billing_transactions(status);
-CREATE INDEX IF NOT EXISTS idx_billing_deleted   ON billing_transactions(deleted);
+CREATE INDEX idx_billing_store_id  ON billing_transactions(store_id);
+CREATE INDEX idx_billing_order_id  ON billing_transactions(order_id);
+CREATE INDEX idx_billing_status    ON billing_transactions(status);
+CREATE INDEX idx_billing_deleted   ON billing_transactions(deleted);
 
 -- ===========================================================================
 -- PAYMENTS
 -- ===========================================================================
-CREATE TABLE IF NOT EXISTS payments (
+CREATE TABLE payments (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     store_id            UUID NOT NULL REFERENCES stores(id),
     order_id            UUID NOT NULL REFERENCES orders(id),
@@ -290,35 +317,40 @@ CREATE TABLE IF NOT EXISTS payments (
     updated_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     deleted             BOOLEAN NOT NULL DEFAULT FALSE
 );
-CREATE INDEX IF NOT EXISTS idx_payments_order_id  ON payments(order_id);
-CREATE INDEX IF NOT EXISTS idx_payments_store_id  ON payments(store_id);
-CREATE INDEX IF NOT EXISTS idx_payments_status    ON payments(status);
-CREATE INDEX IF NOT EXISTS idx_payments_deleted   ON payments(deleted);
+CREATE INDEX idx_payments_order_id  ON payments(order_id);
+CREATE INDEX idx_payments_store_id  ON payments(store_id);
+CREATE INDEX idx_payments_status    ON payments(status);
+CREATE INDEX idx_payments_deleted   ON payments(deleted);
 
 -- ===========================================================================
 -- ESCROW_TRANSACTIONS
+-- Merged columns: V1 base + V2 fields (platform_fee_percent, seller_amount, released_at)
 -- ===========================================================================
-CREATE TABLE IF NOT EXISTS escrow_transactions (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    store_id        UUID NOT NULL REFERENCES stores(id),
-    order_id        UUID NOT NULL REFERENCES orders(id),
-    hold_amount     NUMERIC(19,2) NOT NULL,
-    status          VARCHAR(32) NOT NULL,
-    release_at      BIGINT,
-    transaction_ref VARCHAR(64),
-    created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-    deleted         BOOLEAN NOT NULL DEFAULT FALSE
+CREATE TABLE escrow_transactions (
+    id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    store_id             UUID NOT NULL REFERENCES stores(id),
+    order_id             UUID NOT NULL REFERENCES orders(id),
+    hold_amount          NUMERIC(19,2) NOT NULL,
+    status               VARCHAR(32) NOT NULL,
+    release_at           BIGINT,
+    transaction_ref      VARCHAR(64),
+    platform_fee_percent NUMERIC(5,2),
+    seller_amount        NUMERIC(19,2),
+    released_at          BIGINT,
+    created_at           TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    updated_at           TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+    deleted              BOOLEAN NOT NULL DEFAULT FALSE
 );
-CREATE INDEX IF NOT EXISTS idx_escrow_order_id  ON escrow_transactions(order_id);
-CREATE INDEX IF NOT EXISTS idx_escrow_status    ON escrow_transactions(status);
-CREATE INDEX IF NOT EXISTS idx_escrow_store_id  ON escrow_transactions(store_id);
-CREATE INDEX IF NOT EXISTS idx_escrow_deleted   ON escrow_transactions(deleted);
+CREATE INDEX idx_escrow_order_id  ON escrow_transactions(order_id);
+CREATE INDEX idx_escrow_status    ON escrow_transactions(status);
+CREATE INDEX idx_escrow_store_id  ON escrow_transactions(store_id);
+CREATE INDEX idx_escrow_deleted   ON escrow_transactions(deleted);
 
 -- ===========================================================================
 -- ESCROW_DISPUTES
+-- Merged columns: V1 base + V2 fields (evidence, admin_resolution_notes)
 -- ===========================================================================
-CREATE TABLE IF NOT EXISTS escrow_disputes (
+CREATE TABLE escrow_disputes (
     id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     escrow_transaction_id   UUID NOT NULL REFERENCES escrow_transactions(id),
     raised_by_user_id       UUID NOT NULL REFERENCES users(id),
@@ -326,18 +358,21 @@ CREATE TABLE IF NOT EXISTS escrow_disputes (
     status                  VARCHAR(32) NOT NULL,
     resolution_notes        TEXT,
     resolved_at             BIGINT,
+    evidence                TEXT,
+    admin_resolution_notes  TEXT,
     created_at              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     updated_at              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     deleted                 BOOLEAN NOT NULL DEFAULT FALSE
 );
-CREATE INDEX IF NOT EXISTS idx_escrow_disputes_escrow_id ON escrow_disputes(escrow_transaction_id);
-CREATE INDEX IF NOT EXISTS idx_escrow_disputes_status    ON escrow_disputes(status);
-CREATE INDEX IF NOT EXISTS idx_escrow_disputes_deleted   ON escrow_disputes(deleted);
+CREATE INDEX idx_escrow_disputes_escrow_id ON escrow_disputes(escrow_transaction_id);
+CREATE INDEX idx_escrow_disputes_status    ON escrow_disputes(status);
+CREATE INDEX idx_escrow_disputes_deleted   ON escrow_disputes(deleted);
 
 -- ===========================================================================
 -- EMAIL_QUEUE
+-- Merged columns: V1 base + V2 field (sent_at)
 -- ===========================================================================
-CREATE TABLE IF NOT EXISTS email_queue (
+CREATE TABLE email_queue (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     recipient       VARCHAR(255) NOT NULL,
     subject         VARCHAR(500) NOT NULL,
@@ -346,6 +381,7 @@ CREATE TABLE IF NOT EXISTS email_queue (
     status          VARCHAR(32) NOT NULL DEFAULT 'PENDING',
     retry_count     INT NOT NULL DEFAULT 0,
     error_message   TEXT,
+    sent_at         TIMESTAMPTZ,
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     deleted         BOOLEAN NOT NULL DEFAULT FALSE
@@ -354,7 +390,7 @@ CREATE TABLE IF NOT EXISTS email_queue (
 -- ===========================================================================
 -- FRAUD_FLAGS
 -- ===========================================================================
-CREATE TABLE IF NOT EXISTS fraud_flags (
+CREATE TABLE fraud_flags (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     store_id    UUID NOT NULL REFERENCES stores(id),
     order_id    UUID,
@@ -366,14 +402,14 @@ CREATE TABLE IF NOT EXISTS fraud_flags (
     updated_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     deleted     BOOLEAN NOT NULL DEFAULT FALSE
 );
-CREATE INDEX IF NOT EXISTS idx_fraud_flags_store_id ON fraud_flags(store_id);
-CREATE INDEX IF NOT EXISTS idx_fraud_flags_reviewed ON fraud_flags(reviewed);
-CREATE INDEX IF NOT EXISTS idx_fraud_flags_deleted  ON fraud_flags(deleted);
+CREATE INDEX idx_fraud_flags_store_id ON fraud_flags(store_id);
+CREATE INDEX idx_fraud_flags_reviewed ON fraud_flags(reviewed);
+CREATE INDEX idx_fraud_flags_deleted  ON fraud_flags(deleted);
 
 -- ===========================================================================
 -- KPI_SNAPSHOTS
 -- ===========================================================================
-CREATE TABLE IF NOT EXISTS kpi_snapshots (
+CREATE TABLE kpi_snapshots (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     store_id        UUID,
     scope           VARCHAR(32) NOT NULL,
@@ -385,5 +421,115 @@ CREATE TABLE IF NOT EXISTS kpi_snapshots (
     updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     deleted         BOOLEAN NOT NULL DEFAULT FALSE
 );
-CREATE INDEX IF NOT EXISTS idx_kpi_snapshots_store_date ON kpi_snapshots(store_id, snapshot_date);
-CREATE INDEX IF NOT EXISTS idx_kpi_snapshots_deleted    ON kpi_snapshots(deleted);
+CREATE INDEX idx_kpi_snapshots_store_date ON kpi_snapshots(store_id, snapshot_date);
+CREATE INDEX idx_kpi_snapshots_deleted    ON kpi_snapshots(deleted);
+
+-- ===========================================================================
+-- COUPONS
+-- Originally created in V2__feature_upgrades.sql
+-- ===========================================================================
+CREATE TABLE coupons (
+    id              UUID          NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+    store_id        UUID          NOT NULL REFERENCES stores(id),
+    code            VARCHAR(64)   NOT NULL,
+    discount_type   VARCHAR(20)   NOT NULL,
+    discount_value  NUMERIC(19,2) NOT NULL,
+    min_order_value NUMERIC(19,2),
+    max_uses        INTEGER,
+    used_count      INTEGER       NOT NULL DEFAULT 0,
+    expires_at      TIMESTAMPTZ,
+    active          BOOLEAN       NOT NULL DEFAULT TRUE,
+    created_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    deleted         BOOLEAN       NOT NULL DEFAULT FALSE
+);
+CREATE INDEX idx_coupon_store_id ON coupons(store_id);
+CREATE INDEX idx_coupon_code     ON coupons(code);
+CREATE INDEX idx_coupon_deleted  ON coupons(deleted);
+
+-- ===========================================================================
+-- REFRESH_TOKENS
+-- ===========================================================================
+CREATE TABLE refresh_tokens (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID NOT NULL REFERENCES users(id),
+    token_hash  VARCHAR(255) NOT NULL UNIQUE,
+    expires_at  TIMESTAMPTZ NOT NULL,
+    revoked     BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted     BOOLEAN NOT NULL DEFAULT FALSE
+);
+CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+CREATE INDEX idx_refresh_tokens_token   ON refresh_tokens(token_hash);
+CREATE INDEX idx_refresh_tokens_revoked ON refresh_tokens(revoked);
+
+-- ===========================================================================
+-- ORDER_TRACKING
+-- ===========================================================================
+CREATE TABLE order_tracking (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_id    UUID NOT NULL REFERENCES orders(id),
+    status      VARCHAR(60) NOT NULL,
+    note        TEXT,
+    updated_by  UUID REFERENCES users(id),
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted     BOOLEAN NOT NULL DEFAULT FALSE
+);
+CREATE INDEX idx_order_tracking_order_id ON order_tracking(order_id);
+CREATE INDEX idx_order_tracking_status   ON order_tracking(status);
+
+-- ===========================================================================
+-- PRODUCT_VARIANTS
+-- ===========================================================================
+CREATE TABLE product_variants (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id      UUID NOT NULL REFERENCES products(id),
+    variant_name    VARCHAR(255) NOT NULL,
+    sku             VARCHAR(100),
+    price           NUMERIC(19,2) NOT NULL,
+    stock_quantity  BIGINT NOT NULL DEFAULT 0,
+    image_url       VARCHAR(500),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted         BOOLEAN NOT NULL DEFAULT FALSE
+);
+CREATE INDEX idx_product_variants_product_id ON product_variants(product_id);
+
+-- ===========================================================================
+-- REVIEWS
+-- ===========================================================================
+CREATE TABLE reviews (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id  UUID NOT NULL REFERENCES products(id),
+    customer_id UUID NOT NULL REFERENCES customers(id),
+    store_id    UUID NOT NULL REFERENCES stores(id),
+    rating      SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    comment     TEXT,
+    verified    BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted     BOOLEAN NOT NULL DEFAULT FALSE,
+    UNIQUE (product_id, customer_id)
+);
+CREATE INDEX idx_reviews_product_id  ON reviews(product_id);
+CREATE INDEX idx_reviews_customer_id ON reviews(customer_id);
+CREATE INDEX idx_reviews_store_id    ON reviews(store_id);
+
+-- ===========================================================================
+-- WISHLISTS
+-- ===========================================================================
+CREATE TABLE wishlists (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    customer_id UUID NOT NULL REFERENCES customers(id),
+    product_id  UUID NOT NULL REFERENCES products(id),
+    store_id    UUID NOT NULL REFERENCES stores(id),
+    saved_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted     BOOLEAN NOT NULL DEFAULT FALSE,
+    UNIQUE (customer_id, product_id)
+);
+CREATE INDEX idx_wishlists_customer_id ON wishlists(customer_id);
+CREATE INDEX idx_wishlists_product_id  ON wishlists(product_id);

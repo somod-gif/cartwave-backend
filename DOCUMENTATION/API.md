@@ -26,8 +26,9 @@ Complete API documentation for building a frontend against the CartWave backend.
    - [Dashboard](#513-dashboard)
    - [Admin Dashboard](#514-admin-dashboard)
    - [Super Admin](#515-super-admin)
-   - [Email Queue](#516-email-queue)
-   - [Health](#517-health)
+   - [Wishlist](#516-wishlist)
+   - [Email Queue](#517-email-queue)
+   - [Health](#518-health)
 6. [Database Schema](#6-database-schema)
 7. [Frontend Integration Guide](#7-frontend-integration-guide)
 
@@ -60,10 +61,24 @@ Complete API documentation for building a frontend against the CartWave backend.
 POST   /api/v1/auth/login
 POST   /api/v1/auth/register
 POST   /api/v1/auth/refresh
+POST   /api/v1/auth/forgot-password
+POST   /api/v1/auth/reset-password
+POST   /api/v1/auth/verify-email
+POST   /api/v1/auth/resend-verification
+POST   /api/v1/auth/logout
 POST   /api/v1/customers/register
 GET    /api/v1/health
 GET    /api/v1/public/stores/{slug}
 GET    /api/v1/public/stores/{slug}/products
+GET    /api/v1/public/stores/{storeId}/products/search
+GET    /api/v1/stores/{id}/public
+GET    /api/v1/stores/{storeId}/products
+GET    /api/v1/products/{id}/reviews
+GET    /api/v1/subscriptions/plans
+POST   /api/v1/marketing/coupons/validate
+POST   /api/v1/payments/webhook
+POST   /api/v1/payments/paystack/webhook
+POST   /api/v1/emails/enqueue
 ```
 
 All other endpoints require a valid Bearer token.
@@ -257,7 +272,7 @@ Authenticate and receive JWT tokens. **Public.**
 ---
 
 #### POST `/api/v1/auth/refresh`
-Get a new token pair using a refresh token. **Public.**
+Get a new token pair using a refresh token. **Public.** Refresh token rotation — old token is revoked, new pair issued.
 
 **Request:**
 ```json
@@ -267,6 +282,72 @@ Get a new token pair using a refresh token. **Public.**
 ```
 
 **Response:** Same shape as login response.
+
+---
+
+#### POST `/api/v1/auth/forgot-password`
+Send a password reset email. **Public.**
+
+**Request:**
+```json
+{
+  "email": "user@example.com"  // required
+}
+```
+
+**Response:** `ApiResponse<Void>` with success message.
+
+---
+
+#### POST `/api/v1/auth/reset-password`
+Reset password using the token from the reset email. **Public.**
+
+**Request:**
+```json
+{
+  "token": "reset-token-from-email",  // required
+  "newPassword": "newSecurePassword"  // required
+}
+```
+
+**Response:** `ApiResponse<Void>` with success message.
+
+---
+
+#### POST `/api/v1/auth/verify-email`
+Verify email address using the token from the verification email. **Public.**
+
+**Request:**
+```json
+{
+  "token": "verification-token-from-email"  // required
+}
+```
+
+**Response:** `ApiResponse<Void>` with success message.
+
+---
+
+#### POST `/api/v1/auth/resend-verification`
+Resend the email verification email. **Public.**
+
+**Query Parameters:** `email` (required)
+
+**Response:** `ApiResponse<Void>` with success message.
+
+---
+
+#### POST `/api/v1/auth/logout`
+Revoke the current refresh token. **Public.**
+
+**Request:**
+```json
+{
+  "refreshToken": "eyJhbGciOiJIUzI1NiJ9..."  // required
+}
+```
+
+**Response:** `ApiResponse<Void>` with success message.
 
 ---
 
@@ -462,6 +543,82 @@ Soft-delete a product.
 
 ---
 
+#### POST `/api/v1/products/{id}/images`
+Upload product images to S3. **Multipart file upload.** Requires BUSINESS_OWNER/ADMIN/STAFF.
+
+---
+
+#### DELETE `/api/v1/products/{id}/images/{imageUrl}`
+Remove a product image from S3. Requires BUSINESS_OWNER/ADMIN/STAFF.
+
+---
+
+#### PUT `/api/v1/products/{id}/publish`
+Toggle product published status. Requires BUSINESS_OWNER/ADMIN/STAFF.
+
+---
+
+#### GET `/api/v1/products/search`
+Search products with filters. Requires BUSINESS_OWNER/ADMIN/STAFF/SUPER_ADMIN.
+
+**Query Parameters:** `q`, `category`, `minPrice`, `maxPrice`, `inStock`, `publishedOnly`, `page` (default 0), `size` (default 20)
+
+---
+
+#### GET `/api/v1/products/{id}/variants`
+List all variants for a product. Requires BUSINESS_OWNER/ADMIN/STAFF.
+
+---
+
+#### POST `/api/v1/products/{id}/variants`
+Add a variant to a product. Requires BUSINESS_OWNER/ADMIN/STAFF.
+
+**Request:**
+```json
+{
+  "name": "Red / Large",
+  "sku": "SKU-RED-L",
+  "price": 34.99,
+  "stockQuantity": 50,
+  "imageUrl": "https://..."
+}
+```
+
+---
+
+#### PUT `/api/v1/products/{id}/variants/{variantId}`
+Update a variant. Requires BUSINESS_OWNER/ADMIN/STAFF.
+
+---
+
+#### DELETE `/api/v1/products/{id}/variants/{variantId}`
+Delete a variant. Requires BUSINESS_OWNER/ADMIN/STAFF.
+
+---
+
+#### GET `/api/v1/products/{id}/reviews`
+List product reviews (paginated). **Public — no auth required.**
+
+---
+
+#### POST `/api/v1/products/{id}/reviews`
+Submit a product review. Requires CUSTOMER. Auto-sets verified-purchase flag. Unique per customer+product.
+
+**Request:**
+```json
+{
+  "rating": 5,
+  "comment": "Great product!"
+}
+```
+
+---
+
+#### DELETE `/api/v1/products/{id}/reviews/{reviewId}`
+Delete a review. Requires BUSINESS_OWNER/ADMIN/SUPER_ADMIN.
+
+---
+
 ### 5.5 Cart
 
 All cart endpoints require `CUSTOMER` role.
@@ -648,6 +805,30 @@ Requires: `BUSINESS_OWNER`, `ADMIN`, `STAFF`
 
 ---
 
+#### GET `/api/v1/orders/{orderId}/tracking`
+Get the order tracking timeline — a chronological list of all status changes.
+
+Requires: `CUSTOMER`, `BUSINESS_OWNER`, `ADMIN`, `STAFF`, `SUPER_ADMIN`
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "orderId": "uuid",
+      "status": "CONFIRMED",
+      "note": "Order confirmed by seller",
+      "updatedBy": "uuid",
+      "createdAt": "2026-03-08T10:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
 ### 5.8 Payments
 
 #### POST `/api/v1/payments/initiate`
@@ -694,9 +875,7 @@ Requires: `CUSTOMER`, `BUSINESS_OWNER`, `ADMIN`, `SUPER_ADMIN`
 ---
 
 #### POST `/api/v1/payments/webhook`
-Receive payment status updates (webhook endpoint).
-
-Requires: `CUSTOMER`, `BUSINESS_OWNER`, `ADMIN`, `SUPER_ADMIN`
+Receive payment status updates (generic webhook endpoint). **Public.**
 
 **Request:**
 ```json
@@ -704,6 +883,27 @@ Requires: `CUSTOMER`, `BUSINESS_OWNER`, `ADMIN`, `SUPER_ADMIN`
   "transactionId": "TXN-1234567890",  // required
   "status": "SUCCESS",                // required
   "failureReason": null               // optional — reason if failed
+}
+```
+
+---
+
+#### POST `/api/v1/payments/paystack/webhook`
+Paystack-specific webhook endpoint. **Public.** Verifies `X-Paystack-Signature` header using HMAC-SHA512 before processing.
+
+**Headers:** `X-Paystack-Signature` (required)
+**Request Body:** Raw Paystack event payload
+
+---
+
+#### POST `/api/v1/payments/refund`
+Process a payment refund. Requires `BUSINESS_OWNER`, `ADMIN`, `SUPER_ADMIN`.
+
+**Request:**
+```json
+{
+  "transactionId": "TXN-1234567890",  // required
+  "reason": "Customer request"         // optional
 }
 ```
 
@@ -950,10 +1150,13 @@ Requires: `ADMIN`, `BUSINESS_OWNER`, `STAFF`
 
 ### 5.15 Super Admin
 
-#### GET `/api/v1/super-admin/dashboard` or GET `/api/v1/super-admin/system-stats`
-Platform-wide statistics.
+All super admin endpoints require `SUPER_ADMIN` role only.
 
-Requires: `SUPER_ADMIN` only.
+#### GET `/api/v1/super-admin/dashboard`
+Platform-wide dashboard.
+
+#### GET `/api/v1/super-admin/system-stats`
+System statistics.
 
 **Response:**
 ```json
@@ -970,9 +1173,70 @@ Requires: `SUPER_ADMIN` only.
 }
 ```
 
+#### GET `/api/v1/super-admin/health`
+Platform health indicators.
+
+#### GET `/api/v1/super-admin/revenue`
+Total and monthly revenue.
+
+#### GET `/api/v1/super-admin/users`
+List all platform users.
+
+#### GET `/api/v1/super-admin/users/{userId}`
+Get user by ID.
+
+#### PUT `/api/v1/super-admin/users/{userId}/suspend`
+Suspend a user.
+
+#### PUT `/api/v1/super-admin/users/{userId}/activate`
+Activate a user.
+
+#### POST `/api/v1/super-admin/admins`
+Create a new admin account.
+
+**Request:**
+```json
+{
+  "email": "admin@cartwave.com",
+  "password": "securePassword",
+  "firstName": "Admin",
+  "lastName": "User"
+}
+```
+
+#### GET `/api/v1/super-admin/admins`
+List all admin accounts.
+
+#### DELETE `/api/v1/super-admin/admins/{adminId}`
+Remove an admin account.
+
+#### GET `/api/v1/super-admin/stores`
+List all stores on the platform.
+
+#### POST `/api/v1/super-admin/plans`
+Create a new subscription plan.
+
+#### DELETE `/api/v1/super-admin/plans/{planId}/deactivate`
+Deactivate a subscription plan.
+
 ---
 
-### 5.16 Email Queue
+### 5.16 Wishlist
+
+All wishlist endpoints require `CUSTOMER` role.
+
+#### GET `/api/v1/wishlist`
+Get the customer's wishlist items.
+
+#### POST `/api/v1/wishlist/{productId}`
+Add a product to the wishlist. Unique per customer+product.
+
+#### DELETE `/api/v1/wishlist/{productId}`
+Remove a product from the wishlist.
+
+---
+
+### 5.17 Email Queue
 
 #### POST `/api/v1/emails/enqueue`
 Queue an email for sending. **(202)**
@@ -1004,7 +1268,7 @@ Queue an email for sending. **(202)**
 
 ---
 
-### 5.17 Health
+### 5.18 Health
 
 #### GET `/api/v1/health`
 Health check endpoint. **Public.**
@@ -1023,20 +1287,26 @@ Health check endpoint. **Public.**
 
 ## 6. Database Schema
 
-17 tables with soft-delete support (`deleted` boolean column).
+24 tables with soft-delete support (`deleted` boolean column).
 
 ```
 users
+├── refresh_tokens (user_id → users.id)
 ├── stores (owner_user_id → users.id)
 │   ├── products (store_id → stores.id)
+│   │   ├── product_variants (product_id → products.id)
+│   │   └── reviews (product_id → products.id, customer_id → customers.id)
 │   ├── customers (store_id → stores.id, user_id → users.id)
+│   │   ├── wishlists (customer_id → customers.id, product_id → products.id)
 │   │   ├── carts (customer_id → customers.id, store_id → stores.id)
 │   │   │   └── cart_items (cart_id → carts.id, product_id → products.id)
 │   │   └── orders (customer_id → customers.id, store_id → stores.id)
 │   │       ├── order_items (order_id → orders.id, product_id → products.id)
+│   │       ├── order_tracking (order_id → orders.id)
 │   │       ├── payments (order_id → orders.id, store_id → stores.id)
 │   │       └── escrow_transactions (order_id → orders.id, store_id → stores.id)
 │   │           └── escrow_disputes (escrow_transaction_id → escrow_transactions.id)
+│   ├── coupons (store_id → stores.id)
 │   ├── staff (store_id → stores.id, user_id → users.id)
 │   ├── subscriptions (store_id → stores.id)
 │   ├── billing_transactions (store_id → stores.id)
@@ -1051,17 +1321,23 @@ users
 | Table | Description |
 |-------|-------------|
 | `users` | All platform users (owners, staff, customers, admins) |
+| `refresh_tokens` | SHA-256 hashed refresh tokens for token rotation |
 | `stores` | Tenant stores, each owned by a user |
-| `products` | Store products with pricing, stock, SKU, images |
+| `products` | Store products with pricing, stock, SKU, images, SEO |
+| `product_variants` | Product variants with SKU, price, stock, imageUrl |
+| `reviews` | Product reviews with rating, comment, verified-purchase flag |
 | `customers` | Customer profiles scoped to a store |
+| `wishlists` | Customer wishlist items (unique per customer+product) |
 | `orders` | Customer orders with amounts, status, delivery info |
 | `order_items` | Line items within an order |
+| `order_tracking` | Order status change timeline with notes |
 | `carts` | Active shopping carts |
 | `cart_items` | Items in a cart |
 | `payments` | Payment records linked to orders |
 | `billing_transactions` | Financial transaction records |
 | `escrow_transactions` | Funds held in escrow until order completion |
 | `escrow_disputes` | Disputes raised against escrow transactions |
+| `coupons` | Store coupons with discount type, max uses, expiry |
 | `staff` | Staff members assigned to stores |
 | `subscriptions` | Store subscription records |
 | `subscription_plans` | Available subscription plan definitions |
@@ -1088,14 +1364,20 @@ users
 ```
 1. GET  /api/v1/public/stores/{slug}           → view store
 2. GET  /api/v1/public/stores/{slug}/products  → browse products
-3. POST /api/v1/customers/register             → sign up (with storeId)
-4. POST /api/v1/auth/login                     → get tokens (with storeId)
-5. POST /api/v1/cart/items                     → add to cart
-6. GET  /api/v1/cart                           → view cart
-7. POST /api/v1/checkout                       → place order
-8. POST /api/v1/payments/initiate              → start payment
-9. POST /api/v1/payments/confirm               → confirm payment
-10. GET /api/v1/orders                         → view order history
+3. GET  /api/v1/public/stores/{storeId}/products/search → search/filter
+4. GET  /api/v1/products/{id}/reviews          → read reviews
+5. POST /api/v1/customers/register             → sign up (with storeId)
+6. POST /api/v1/auth/login                     → get tokens (with storeId)
+7. POST /api/v1/auth/verify-email              → verify email
+8. POST /api/v1/wishlist/{productId}           → save for later
+9. POST /api/v1/cart/items                     → add to cart
+10. POST /api/v1/marketing/coupons/validate    → check coupon
+11. POST /api/v1/checkout                      → place order
+12. POST /api/v1/payments/initiate             → start payment
+13. POST /api/v1/payments/confirm              → confirm payment
+14. GET  /api/v1/orders                        → view order history
+15. GET  /api/v1/orders/{orderId}/tracking     → track order
+16. POST /api/v1/products/{id}/reviews         → leave review
 ```
 
 #### Store Management

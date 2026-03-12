@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><title>Payment Failed</title></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 0;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);">
+      <!-- Header -->
+      <tr><td style="background:#dc2626;padding:32px 40px;text-align:center;">
+        <h1 style="color:#fff;margin:0;font-size:24px;font-weight:700;">CartWave</h1>
+      </td></tr>
+      <!-- Body -->
+      <tr><td style="padding:40px;">
+        <h2 style="margin:0 0 16px;color:#111827;font-size:20px;">Payment Failed ❌</h2>
+        <p style="color:#6b7280;margin:0 0 24px;line-height:1.6;">
+          Unfortunately, your payment could not be processed. Your order has not been placed.
+        </p>
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:20px;margin-bottom:24px;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="color:#374151;font-size:14px;padding-bottom:8px;"><strong>Order ID:</strong></td>
+              <td style="color:#dc2626;font-size:14px;padding-bottom:8px;text-align:right;" th:text="${orderId}"></td>
+            </tr>
+            <tr>
+              <td style="color:#374151;font-size:14px;padding-bottom:8px;"><strong>Transaction ID:</strong></td>
+              <td style="color:#374151;font-size:14px;padding-bottom:8px;text-align:right;" th:text="${transactionId}"></td>
+            </tr>
+            <tr>
+              <td style="color:#374151;font-size:14px;"><strong>Reason:</strong></td>
+              <td style="color:#dc2626;font-size:14px;text-align:right;" th:text="${failureReason ?: 'Payment declined'}"></td>
+            </tr>
+          </table>
+        </div>
+        <p style="color:#6b7280;margin:0 0 24px;line-height:1.6;">
+          Please try again with a different payment method or contact your bank for assistance.
+          Your cart items are still saved.
+        </p>
+        <div style="text-align:center;margin:24px 0;">
+          <a th:href="${retryUrl}" href="#"
+             style="display:inline-block;background:#dc2626;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:16px;">
+            Retry Payment
+          </a>
+        </div>
+      </td></tr>
+      <!-- Footer -->
+      <tr><td style="background:#f9fafb;padding:24px 40px;text-align:center;">
+        <p style="margin:0;color:#9ca3af;font-size:12px;">© 2026 CartWave. All rights reserved. · Powered by CartWave</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>
