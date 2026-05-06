@@ -13,5 +13,7 @@ public class JwtAuthResponse {
     private String accessToken;
     private String refreshToken;
     @Builder.Default
+    private Boolean mustResetPassword = false;
+    @Builder.Default
     private String tokenType = "Bearer";
 }

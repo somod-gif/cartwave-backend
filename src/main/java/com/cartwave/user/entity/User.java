@@ -46,6 +46,10 @@ public class User extends BaseEntity {
     @Column(nullable = false)
     private Boolean emailVerified = false;
 
+    @Builder.Default
+    @Column(nullable = false)
+    private Boolean mustResetPassword = false;
+
     @Column(columnDefinition = "TEXT")
     private String profilePictureUrl;
 

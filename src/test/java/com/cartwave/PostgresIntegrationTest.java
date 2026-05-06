@@ -1,6 +1,7 @@
 package com.cartwave;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIf;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -19,6 +20,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@EnabledIf("com.cartwave.TestDockerSupport#isDockerAvailable")
 @Testcontainers(disabledWithoutDocker = true)
 class PostgresIntegrationTest {
 

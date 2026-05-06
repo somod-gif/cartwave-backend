@@ -49,5 +49,7 @@ docker run -p 8080:8080 -e DATABASE_URL=... cartwave-backend
 
 ## Documentation
 
-See **[DOCUMENTATION/API.md](DOCUMENTATION/API.md)** for the complete API reference — all 38 endpoints, request/response schemas, enums, authentication guide, and frontend integration spec.
+See **[docs/API.md](docs/API.md)** for the maintained API reference and **[docs/AUDIT_REPORT.md](docs/AUDIT_REPORT.md)** for the enterprise readiness audit backlog.
+
+Additional legacy reference docs remain available in `DOCUMENTATION/`.
 

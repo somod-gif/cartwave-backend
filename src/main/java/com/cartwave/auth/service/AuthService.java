@@ -90,6 +90,7 @@ public class AuthService {
             return JwtAuthResponse.builder()
                     .accessToken(tokenProvider.generateToken(user, storeId))
                     .refreshToken(tokenProvider.generateRefreshToken(user, storeId))
+                    .mustResetPassword(Boolean.TRUE.equals(user.getMustResetPassword()))
                     .build();
         } catch (Exception ex) {
             loginAttemptService.onFailure(loginRequest.getEmail());
@@ -117,6 +118,7 @@ public class AuthService {
         return JwtAuthResponse.builder()
                 .accessToken(tokenProvider.generateToken(user, storeId))
                 .refreshToken(tokenProvider.generateRefreshToken(user, storeId))
+                .mustResetPassword(Boolean.TRUE.equals(user.getMustResetPassword()))
                 .build();
     }
 
@@ -201,6 +203,7 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         user.setPasswordResetToken(null);
         user.setPasswordResetExpiresAt(null);
+        user.setMustResetPassword(false);
         userRepository.save(user);
     }
 
@@ -310,4 +313,3 @@ public class AuthService {
                 .orElseThrow(() -> new BusinessException("STORE_NOT_FOUND", "Store not found for customer registration."));
     }
 }
-
