@@ -39,6 +39,8 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for system design.
 
 See [API.md](API.md) for all endpoints.
 
+See [OPENAPI_SWAGGER.md](OPENAPI_SWAGGER.md) for Swagger UI and OpenAPI generation/export instructions.
+
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for version history.

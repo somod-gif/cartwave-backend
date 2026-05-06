@@ -26,10 +26,10 @@ public class StartupDataLoader implements ApplicationRunner {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
-    @Value("${cartwave.superadmin.email:superadmin@cartwave.local}")
+    @Value("${cartwave.superadmin.email:ceo@cartwave.app}")
     private String superAdminEmail;
 
-    @Value("${cartwave.superadmin.password:Password123!}")
+    @Value("${cartwave.superadmin.password:temporary}")
     private String superAdminPassword;
 
     @Override
@@ -78,6 +78,8 @@ public class StartupDataLoader implements ApplicationRunner {
         user.setPassword(passwordEncoder.encode(superAdminPassword));
         user.setRole(UserRole.SUPER_ADMIN);
         user.setStatus(UserStatus.ACTIVE);
+        user.setMustResetPassword(true);
+        user.setEmailVerified(true);
         user.setFirstName("System");
         user.setLastName("Admin");
         userRepository.save(user);

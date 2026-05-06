@@ -6,6 +6,9 @@ Interactive docs: `/swagger-ui/index.html`
 
 ## Authentication
 
+> Role naming note: current code uses `BUSINESS_OWNER` (seller) and `CUSTOMER` (buyer).
+
+
 All protected endpoints require a Bearer token in the `Authorization` header:
 ```
 Authorization: Bearer <jwt_token>
